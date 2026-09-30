@@ -167,43 +167,72 @@ public sealed class EventLocator(TravelTimeTableSet tables, IReadOnlyDictionary<
         var nPar = settings.FixDepth ? 3 : 4;
         var ata = new double[4, 4];
         var atb = new double[4];
-        var it = 0;
-        double chi2 = 0;
-        for (; it < settings.MaxGeigerIterations; it++)
+
+        // Weighted misfit at a trial source and, when asked, the normal equations there.
+        double Misfit(double x, double y, double z, double t, bool normal)
         {
-            Array.Clear(ata);
-            Array.Clear(atb);
-            chi2 = 0;
+            if (normal) { Array.Clear(ata); Array.Clear(atb); }
+            double sum = 0;
             var rows = 0;
             foreach (var o in obs)
             {
-                var tt = o.Table.Time(lon, lat, dep);
+                var tt = o.Table.Time(x, y, z);
                 if (!double.IsFinite(tt)) continue;
-                var (ge, gn, gz) = o.Table.Gradient(lon, lat, dep);
-                var res = o.ObsSeconds - t0 - tt - o.Correction;
+                var res = o.ObsSeconds - t - tt - o.Correction;
                 var w = o.Weight * o.Weight;
+                sum += w * res * res;
+                rows++;
+                if (!normal) continue;
+                var (ge, gn, gz) = o.Table.Gradient(x, y, z);
                 Span<double> row = [1, ge, gn, gz];
                 for (var a = 0; a < nPar; a++)
                 {
                     atb[a] += w * row[a] * res;
                     for (var b = 0; b < nPar; b++) ata[a, b] += w * row[a] * row[b];
                 }
-                chi2 += w * res * res;
-                rows++;
             }
-            if (rows < nPar) break;
-            var lhs = (double[,])ata.Clone();
-            for (var a = 0; a < nPar; a++) lhs[a, a] *= 1 + settings.Damping;
-            var step = Solve(lhs, atb, nPar);
-            if (step == null) break;
-            t0 += step[0];
-            var (nlon, nlat) = GeoMath.Destination(lon, lat, Math.Atan2(step[1], step[2]) * GeoMath.Rad2Deg, Math.Sqrt(step[1] * step[1] + step[2] * step[2]));
-            lon = Math.Clamp(GeoMath.UnwrapLon(nlon, g.CentreLon), g.LonDeg[0], g.LonDeg[^1]);
-            lat = Math.Clamp(nlat, g.LatDeg[0], g.LatDeg[^1]);
-            if (!settings.FixDepth) dep = Math.Clamp(dep + step[3], g.DepthKm[0], g.DepthKm[^1]);
+            return rows >= nPar ? sum : double.PositiveInfinity;
+        }
+
+        // Levenberg-Marquardt: a step is taken only when it lowers the misfit; otherwise the damping
+        // grows (shorter steps towards the gradient direction) and the step is tried again. A fixed
+        // damping could let a shallow event, where the travel-time field bends strongly, jump to the
+        // bottom of the grid and stay there.
+        var lambda = Math.Max(1e-6, settings.Damping);
+        var chi2 = Misfit(lon, lat, dep, t0, true);
+        var it = 0;
+        for (; it < settings.MaxGeigerIterations && double.IsFinite(chi2); it++)
+        {
+            var accepted = false;
+            double[]? step = null;
+            while (lambda < 1e8)
+            {
+                var lhs = (double[,])ata.Clone();
+                for (var a = 0; a < nPar; a++) lhs[a, a] *= 1 + lambda;
+                step = Solve(lhs, atb, nPar);
+                if (step == null) break;
+                var (nlon, nlat) = GeoMath.Destination(lon, lat, Math.Atan2(step[1], step[2]) * GeoMath.Rad2Deg, Math.Sqrt(step[1] * step[1] + step[2] * step[2]));
+                var tLon = Math.Clamp(GeoMath.UnwrapLon(nlon, g.CentreLon), g.LonDeg[0], g.LonDeg[^1]);
+                var tLat = Math.Clamp(nlat, g.LatDeg[0], g.LatDeg[^1]);
+                var tDep = settings.FixDepth ? dep : Math.Clamp(dep + step[3], g.DepthKm[0], g.DepthKm[^1]);
+                var tT0 = t0 + step[0];
+                var trial = Misfit(tLon, tLat, tDep, tT0, false);
+                if (trial <= chi2)
+                {
+                    (lon, lat, dep, t0) = (tLon, tLat, tDep, tT0);
+                    chi2 = Misfit(lon, lat, dep, t0, true);
+                    lambda = Math.Max(1e-6, lambda / 10);
+                    accepted = true;
+                    break;
+                }
+                lambda *= 10;
+            }
+            if (!accepted || step == null) break;
             var moved = Math.Sqrt(step[1] * step[1] + step[2] * step[2] + (nPar > 3 ? step[3] * step[3] : 0));
             if (moved < 0.005 && Math.Abs(step[0]) < 0.001) { it++; break; }
         }
+        // Covariance below from the undamped normal matrix at the solution.
+        Misfit(lon, lat, dep, t0, true);
 
         var hyp = new Hypocentre
         {

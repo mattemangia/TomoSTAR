@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The command-line program 'tomostar': every step of the pipeline as a command, and an
+       interpreter of script files that chain them. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>tomostar</AssemblyName>
+    <RootNamespace>TomoStar.Cli</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TomoStar.Core/TomoStar.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TomoStar.Tests" />
+  </ItemGroup>
+
+</Project>
