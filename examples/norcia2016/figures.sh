@@ -14,7 +14,7 @@ DEPTHS=2,6,10
 
 # Vp, Vp/Vs and their changes from the minimum 1-D model, masked where DWS < 50 km of ray.
 $PLOT slices "$OUT/vel/volumes/vel_dVp.qvol" --dws "$OUT/vel/volumes/vel_DWS_P.qvol" --min-dws 50 \
-  --depths $DEPTHS --events "$EV" --stations "$ST" --limits -8,8 --cmap RdBu --label "dVp/Vp (%)" \
+  --depths $DEPTHS --events "$EV" --stations "$ST" --limits=-8,8 --cmap RdBu --label "dVp/Vp (%)" \
   --title "Vp change from the minimum 1-D model, Amatrice-Visso-Norcia 2016-2017" --out "$FIG/norcia_dvp.png"
 $PLOT slices "$OUT/vel/volumes/vel_VpVs.qvol" --dws "$OUT/vel/volumes/vel_DWS_S.qvol" --min-dws 50 \
   --depths $DEPTHS --events "$EV" --stations "$ST" --limits 1.65,2.05 --cmap RdYlBu_r --label "Vp/Vs" \
@@ -22,15 +22,15 @@ $PLOT slices "$OUT/vel/volumes/vel_VpVs.qvol" --dws "$OUT/vel/volumes/vel_DWS_S.
 
 # A section across the fault system (SW to NE through Norcia), events within 3 km.
 $PLOT section "$OUT/vel/volumes/vel_Vp.qvol" --dws "$OUT/vel/volumes/vel_DWS_P.qvol" --min-dws 50 \
-  --from 12.95,42.65 --to 13.45,42.95 --width-km 3 --events "$EV" --cmap viridis_r --label "Vp (km/s)" \
-  --title "Vp, SW to NE section through Norcia" --out "$FIG/norcia_section_vp.png"
+  --from 12.87,42.735 --to 13.43,42.925 --width-km 4 --max-depth 16 --events "$EV" --cmap viridis_r --label "Vp (km/s)" \
+  --title "Vp, WSW to ENE section through Norcia, across the fault system" --out "$FIG/norcia_section_vp.png"
 $PLOT section "$OUT/vel/volumes/vel_VpVs.qvol" --dws "$OUT/vel/volumes/vel_DWS_S.qvol" --min-dws 50 \
-  --from 12.95,42.65 --to 13.45,42.95 --width-km 3 --events "$EV" --limits 1.65,2.05 --cmap RdYlBu_r --label "Vp/Vs" \
-  --title "Vp/Vs, SW to NE section through Norcia" --out "$FIG/norcia_section_vpvs.png"
+  --from 12.87,42.735 --to 13.43,42.925 --width-km 4 --max-depth 16 --events "$EV" --limits 1.65,2.05 --cmap RdYlBu_r --label "Vp/Vs" \
+  --title "Vp/Vs, WSW to ENE section through Norcia, across the fault system" --out "$FIG/norcia_section_vpvs.png"
 
 # Adaptive grid: the model and the size of its cells.
 $PLOT slices "$OUT/vel_adaptive/volumes/vel_adaptive_dVp.qvol" --dws "$OUT/vel_adaptive/volumes/vel_adaptive_DWS_P.qvol" --min-dws 50 \
-  --depths $DEPTHS --events "$EV" --stations "$ST" --limits -8,8 --cmap RdBu --label "dVp/Vp (%)" \
+  --depths $DEPTHS --events "$EV" --stations "$ST" --limits=-8,8 --cmap RdBu --label "dVp/Vp (%)" \
   --title "Vp change on the adaptive (octree) grid" --out "$FIG/norcia_adaptive_dvp.png"
 $PLOT slices "$OUT/vel_adaptive/volumes/vel_adaptive_CellSize.qvol" \
   --depths $DEPTHS --stations "$ST" --cmap cividis --label "cell size (km)" \

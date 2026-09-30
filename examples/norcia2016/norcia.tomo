@@ -27,8 +27,9 @@ options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml --grid ${OUT
 if missing ${OUT}/min1d/model1d_minimum.txt
   minimum1d --out ${OUT}/min1d
 end
-options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml --grid ${OUT}/grid/grid.json \
-        --hypocentres ${OUT}/reloc/events_relocated.csv --model ${OUT}/min1d/model1d_minimum.txt
+# From here on: the hypocentres and station terms of the minimum 1-D model as the start.
+options --stations ${OUT}/min1d/stations.csv --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml \
+        --grid ${OUT}/grid/grid.json --hypocentres ${OUT}/min1d/events_relocated.csv --model ${OUT}/min1d/model1d_minimum.txt
 
 # 3. Regularisation from the L-curve, then Vp, Vs and Vp/Vs on the regular grid and on adaptive cells.
 if missing ${OUT}/lcurve/summary.json
