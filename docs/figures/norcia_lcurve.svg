@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<rect width="100%" height="100%" fill="white"/>
+<text x="80" y="28" font-size="15">L-curve (velocity)</text>
+<rect x="80" y="50" width="470" height="410" fill="none" stroke="#333"/>
+<line x1="75" y1="430.9" x2="80" y2="430.9" stroke="#333"/><text x="72" y="434.9" text-anchor="end">0.2</text>
+<line x1="75" y1="320.1" x2="80" y2="320.1" stroke="#333"/><text x="72" y="324.1" text-anchor="end">0.5</text>
+<line x1="75" y1="236.3" x2="80" y2="236.3" stroke="#333"/><text x="72" y="240.3" text-anchor="end">1</text>
+<line x1="75" y1="152.5" x2="80" y2="152.5" stroke="#333"/><text x="72" y="156.5" text-anchor="end">2</text>
+<text x="315" y="502" text-anchor="middle">weighted residual norm ||W(Gm - d)||</text>
+<text transform="translate(22 255) rotate(-90)" text-anchor="middle">model norm ||m||</text>
+<polyline fill="none" stroke="#1f5fa8" stroke-width="1.5" points="105.2,86.8 107.7,126.8 113.9,155.1 130.7,186.9 194.7,242 305.6,305.3 459.3,400 "/>
+<circle cx="105.2" cy="86.8" r="3" fill="white" stroke="#1f5fa8"/><text x="111.2" y="81.8" font-size="9" fill="#1f5fa8">2</text>
+<circle cx="107.7" cy="126.8" r="3" fill="white" stroke="#1f5fa8"/><text x="113.7" y="121.8" font-size="9" fill="#1f5fa8">5</text>
+<circle cx="113.9" cy="155.1" r="3" fill="white" stroke="#1f5fa8"/><text x="119.9" y="150.1" font-size="9" fill="#1f5fa8">10</text>
+<circle cx="130.7" cy="186.9" r="5" fill="#1f5fa8" stroke="#1f5fa8"/><text x="136.7" y="181.9" font-size="9" fill="#1f5fa8">20</text>
+<circle cx="194.7" cy="242" r="3" fill="white" stroke="#1f5fa8"/><text x="200.7" y="237" font-size="9" fill="#1f5fa8">50</text>
+<circle cx="305.6" cy="305.3" r="3" fill="white" stroke="#1f5fa8"/><text x="311.6" y="300.3" font-size="9" fill="#1f5fa8">100</text>
+<circle cx="459.3" cy="400" r="3" fill="white" stroke="#1f5fa8"/><text x="465.3" y="395" font-size="9" fill="#1f5fa8">200</text>
+<line x1="570" y1="70" x2="595" y2="70" stroke="#1f5fa8" stroke-width="2"/><text x="602" y="74">smoothing 10</text>
+<polyline fill="none" stroke="#c2410c" stroke-width="1.5" points="205.7,80 208.2,137.2 212.9,174.6 224.2,209.9 267.6,263.6 349.2,322.2 473.9,409.8 "/>
+<circle cx="205.7" cy="80" r="3" fill="white" stroke="#c2410c"/><text x="211.7" y="75" font-size="9" fill="#c2410c">2</text>
+<circle cx="208.2" cy="137.2" r="3" fill="white" stroke="#c2410c"/><text x="214.2" y="132.2" font-size="9" fill="#c2410c">5</text>
+<circle cx="212.9" cy="174.6" r="3" fill="white" stroke="#c2410c"/><text x="218.9" y="169.6" font-size="9" fill="#c2410c">10</text>
+<circle cx="224.2" cy="209.9" r="5" fill="#c2410c" stroke="#c2410c"/><text x="230.2" y="204.9" font-size="9" fill="#c2410c">20</text>
+<circle cx="224.2" cy="209.9" r="10" fill="none" stroke="black" stroke-width="1.5"/>
+<circle cx="267.6" cy="263.6" r="3" fill="white" stroke="#c2410c"/><text x="273.6" y="258.6" font-size="9" fill="#c2410c">50</text>
+<circle cx="349.2" cy="322.2" r="3" fill="white" stroke="#c2410c"/><text x="355.2" y="317.2" font-size="9" fill="#c2410c">100</text>
+<circle cx="473.9" cy="409.8" r="3" fill="white" stroke="#c2410c"/><text x="479.9" y="404.8" font-size="9" fill="#c2410c">200</text>
+<line x1="570" y1="90" x2="595" y2="90" stroke="#c2410c" stroke-width="2"/><text x="602" y="94">smoothing 30</text>
+<polyline fill="none" stroke="#15803d" stroke-width="1.5" points="357.2,72 359.3,140.7 363.3,185.2 372,232.5 400.6,293.2 449.6,353.8 524.8,438 "/>
+<circle cx="357.2" cy="72" r="3" fill="white" stroke="#15803d"/><text x="363.2" y="67" font-size="9" fill="#15803d">2</text>
+<circle cx="359.3" cy="140.7" r="3" fill="white" stroke="#15803d"/><text x="365.3" y="135.7" font-size="9" fill="#15803d">5</text>
+<circle cx="363.3" cy="185.2" r="3" fill="white" stroke="#15803d"/><text x="369.3" y="180.2" font-size="9" fill="#15803d">10</text>
+<circle cx="372" cy="232.5" r="3" fill="white" stroke="#15803d"/><text x="378" y="227.5" font-size="9" fill="#15803d">20</text>
+<circle cx="400.6" cy="293.2" r="5" fill="#15803d" stroke="#15803d"/><text x="406.6" y="288.2" font-size="9" fill="#15803d">50</text>
+<circle cx="449.6" cy="353.8" r="3" fill="white" stroke="#15803d"/><text x="455.6" y="348.8" font-size="9" fill="#15803d">100</text>
+<circle cx="524.8" cy="438" r="3" fill="white" stroke="#15803d"/><text x="530.8" y="433" font-size="9" fill="#15803d">200</text>
+<line x1="570" y1="110" x2="595" y2="110" stroke="#15803d" stroke-width="2"/><text x="602" y="114">smoothing 90</text>
+<circle cx="582" cy="140" r="8" fill="none" stroke="black" stroke-width="1.5"/><text x="602" y="144">chosen</text>
+<text x="570" y="164" font-size="10">filled: corner</text>
+<text x="570" y="178" font-size="10">labels: damping</text>
+</svg>
