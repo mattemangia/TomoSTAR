@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Writes what TomoSTAR computes for the validation cases to plain files, so that the Python
+       scripts of this folder can compare it with the published reference codes. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>tomostar-validation</AssemblyName>
+    <RootNamespace>TomoStar.Validation</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/TomoStar.Core/TomoStar.Core.csproj" />
+  </ItemGroup>
+
+</Project>
