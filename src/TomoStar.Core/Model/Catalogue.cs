@@ -54,7 +54,8 @@ public enum AutomaticPicks
 /// <summary>An arrival-time reading.</summary>
 public sealed class PickRecord
 {
-    public required string StationId { get; init; }
+    /// <summary>NET.STA of the station; may be corrected by <see cref="Catalogue.ResolvePickNetworks"/>.</summary>
+    public required string StationId { get; set; }
     public Phase Phase { get; init; }
 
     /// <summary>Absolute arrival time, UTC.</summary>
@@ -226,6 +227,32 @@ public sealed class Catalogue
         var index = new Dictionary<string, EventRecord>(StringComparer.Ordinal);
         foreach (var e in Events) index.TryAdd(e.Id, e);
         return index;
+    }
+
+    /// <summary>
+    /// Gives the picks whose NET.STA is not in the station list the network of the station with the
+    /// same code, when exactly one network has a station of that code. Bulletins label picks with the
+    /// network of the time (a temporary deployment later moved to a permanent network, or no network
+    /// at all), and the station metadata with today's: without this the picks of those stations would
+    /// be left out. Returns the number of picks relabelled.
+    /// </summary>
+    public int ResolvePickNetworks()
+    {
+        var known = StationIndex();
+        var byCode = Stations.GroupBy(s => Code(s.Id), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Select(s => s.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+        var relabelled = 0;
+        foreach (var e in Events)
+        foreach (var p in e.Picks)
+        {
+            if (known.ContainsKey(p.StationId) || !byCode.TryGetValue(Code(p.StationId), out var id)) continue;
+            p.StationId = id;
+            relabelled++;
+        }
+        return relabelled;
+
+        static string Code(string id) => id.Contains('.') ? id[(id.LastIndexOf('.') + 1)..] : id;
     }
 
     /// <summary>Number of usable P and S picks.</summary>

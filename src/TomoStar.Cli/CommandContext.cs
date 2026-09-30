@@ -172,14 +172,24 @@ public sealed class CommandContext
             if (Table("picks", "picks.csv") is { } p) CatalogueReader.ReadPicks(p, c);
             if (Table("tstar", "tstar.csv") is { } t) CatalogueReader.ReadTStar(t, c);
         }
-        foreach (var file in Args.All("quakeml"))
+        // A --quakeml folder stands for every QuakeML file in it (one file per event, as some event
+        // services return the picks of one event at a time).
+        var quakeml = Args.All("quakeml").SelectMany<string, string>(q => Directory.Exists(q)
+            ? Directory.EnumerateFiles(q).Where(f => f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".quakeml", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal)
+            : [q]).ToList();
+        var fromQuakeMl = (Events: 0, Picks: 0);
+        // Parsed in parallel, added in file order (the same catalogue on any number of threads).
+        var parsed = new List<EventRecord>[quakeml.Count];
+        Parallel.For(0, quakeml.Count, ComputeSettings.Options(Cancel), i => parsed[i] = QuakeMl.ReadFile(quakeml[i]));
+        var knownEvents = c.EventIndex();
+        for (var i = 0; i < quakeml.Count; i++)
         {
-            var known = c.EventIndex();
-            var events = QuakeMl.ReadFile(file);
             var added = 0;
-            foreach (var ev in events.Where(ev => !known.ContainsKey(ev.Id))) { c.Events.Add(ev); added++; }
-            Log($"QuakeML {file}: {added} events, {events.Sum(ev => ev.Picks.Count)} picks.");
+            foreach (var ev in parsed[i].Where(ev => knownEvents.TryAdd(ev.Id, ev))) { c.Events.Add(ev); added++; }
+            fromQuakeMl = (fromQuakeMl.Events + added, fromQuakeMl.Picks + parsed[i].Sum(ev => ev.Picks.Count));
+            if (quakeml.Count <= 10) Log($"QuakeML {quakeml[i]}: {added} events, {parsed[i].Sum(ev => ev.Picks.Count)} picks.");
         }
+        if (quakeml.Count > 10) Log($"QuakeML: {quakeml.Count} files, {fromQuakeMl.Events} events, {fromQuakeMl.Picks} picks.");
         foreach (var file in Args.All("stationxml"))
         {
             var r = StationXml.ReadFile(file);
@@ -207,6 +217,8 @@ public sealed class CommandContext
             }
             Log($"Hypocentres from {hyp}: {moved} of {c.Events.Count} events updated.");
         }
+        var relabelled = c.ResolvePickNetworks();
+        if (relabelled > 0) Log($"{relabelled} picks took the network of the only station with their station code (bulletin and metadata label the station differently).");
         if (c.Stations.Count == 0) throw new UsageException("No stations: give --data (a folder or a QUIVER project), --stations or --stationxml.");
         var (np, ns) = c.PickCounts();
         if (Quiver == null) Log($"Data: {c.Stations.Count} stations, {c.Events.Count} events, {np} P and {ns} S picks, {c.TStar.Count} t*.");
