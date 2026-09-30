@@ -9,7 +9,7 @@ the rays do not sample the model, with stations and hypocentres. Needs numpy and
         [--events events.csv] [--stations stations.csv] [--cmap RdBu] [--limits -8,8]
         [--title TEXT] [--label TEXT] [--min-dws 20]
     python3 plot_tomostar.py section VOLUME.qvol --from LON,LAT --to LON,LAT --out fig.png
-        [--dws DWS.qvol] [--events events.csv] [--width-km 5] ...
+        [--dws DWS.qvol] [--events events.csv] [--width-km 5] [--max-depth 15] ...
     python3 plot_tomostar.py pair TRUE.qvol RECOVERED.qvol --dws DWS.qvol --depths 4,8 --out fig.png
         (a resolution test: true pattern above, recovered below)
 
@@ -189,7 +189,8 @@ def cmd_section(a):
     ky = R_EARTH * math.pi / 180
     length = math.hypot((lo2 - lo1) * kx, (la2 - la1) * ky)
     s = np.linspace(0, 1, 300)
-    z = np.linspace(dep_ax[0], dep_ax[-1], 150)
+    zmax = a.max_depth if a.max_depth is not None else dep_ax[-1]
+    z = np.linspace(dep_ax[0], zmax, 150)
     S, Z = np.meshgrid(s, z)
     lon = lo1 + S * (lo2 - lo1)
     lat = la1 + S * (la2 - la1)
@@ -211,7 +212,7 @@ def cmd_section(a):
         sel = (np.abs(across) <= a.width_km) & (along >= 0) & (along <= length)
         ax.scatter(along[sel], ev[2][sel], s=2, c="k", alpha=0.5, linewidths=0)
     ax.set_xlim(0, length)
-    ax.set_ylim(dep_ax[-1], dep_ax[0])
+    ax.set_ylim(zmax, dep_ax[0])
     ax.set_xlabel("distance along the section (km)")
     ax.set_ylabel("depth (km)")
     ax.set_aspect("equal")
@@ -249,6 +250,7 @@ def main():
     s.add_argument("--from", dest="from_", required=True)
     s.add_argument("--to", required=True)
     s.add_argument("--width-km", type=float, default=5)
+    s.add_argument("--max-depth", type=float, help="bottom of the section, km (default: the grid's)")
     s.set_defaults(fn=cmd_section)
     a = p.parse_args()
     a.fn(a)
