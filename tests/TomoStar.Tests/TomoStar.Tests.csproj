@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Unit and end-to-end tests: numerical kernels against exact answers, file formats by round
+       trip, and the whole pipeline on a small synthetic data set with a known answer. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MIT -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <!-- Apache-2.0 -->
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <!-- Apache-2.0 -->
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/TomoStar.Core/TomoStar.Core.csproj" />
+    <ProjectReference Include="../../src/TomoStar.Cli/TomoStar.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
