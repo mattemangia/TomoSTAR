@@ -1,0 +1,25 @@
+# TomoSTAR on a QUIVER project: the data (stations, events, picks, t*), the grid, the starting
+# model and the inversion settings are read from the project; the results are registered in it and
+# appear in QUIVER's project tree the next time the project is opened (close it in QUIVER first).
+#
+#     tomostar run examples/quiver/quiver_project.tomo --var PROJECT=/path/to/study.quiver
+#
+# Settings of the project can be overridden here with 'config' or --set, as for any data.
+
+default OUT = ${PROJECT}/../tomostar_runs
+
+# The effective configuration: the project's settings over the defaults.
+echo Configuration read from ${PROJECT}:
+tomostar config ${PROJECT}
+
+# L-curve and velocity tomography from the project's picks, registered back into the project.
+lcurve ${PROJECT} --out ${OUT}/lcurve
+invert ${PROJECT} --damping ${json:${OUT}/lcurve/summary.json:Recommended.Damping} \
+       --smoothing ${json:${OUT}/lcurve/summary.json:Recommended.Smoothing} \
+       --out ${OUT}/vel --name tomostar_vel --register data
+resolution ${PROJECT} --vp ${OUT}/vel/volumes/tomostar_vel_Vp.qvol --vs ${OUT}/vel/volumes/tomostar_vel_Vs.qvol \
+           --out ${OUT}/checker --name tomostar_checker --register data
+
+# Q tomography from the t* measured in QUIVER, along the rays of the new velocity model.
+qtomo ${PROJECT} --vp ${OUT}/vel/volumes/tomostar_vel_Vp.qvol --vs ${OUT}/vel/volumes/tomostar_vel_Vs.qvol \
+      --out ${OUT}/q --name tomostar_q --register data

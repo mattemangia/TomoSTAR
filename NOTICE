@@ -1,0 +1,12 @@
+TomoSTAR: seismic travel-time and attenuation tomography from the command line
+Copyright 2026 Matteo Mangiagalli, Universita degli Studi di Urbino Carlo Bo
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The numerical engines of TomoSTAR (eikonal solvers, ray tracing, LSQR, travel-time and attenuation
+tomography, picking, t* measurement, location) derive from QUIVER (QUantitative Inversion of
+Velocity, attEnuation and Relocation), by the same author, also released under the Apache License,
+Version 2.0 (https://github.com/mattemangia/Quiver).
+
+TomoSTAR uses third-party libraries under their own permissive licences; they are listed with
+their copyright notices in THIRD_PARTY_NOTICES.md.

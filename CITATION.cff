@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use TomoSTAR, please cite it as below."
+title: "TomoSTAR: seismic travel-time and attenuation tomography from the command line"
+abstract: >-
+  A standalone command-line program for local earthquake tomography: automatic picking,
+  hypocentre relocation, minimum 1-D models, Vp, Vs and Vp/Vs travel-time tomography on regular or
+  adaptive grids with fast-marching rays, Q tomography from t*, L-curves and resolution tests, with
+  SIMD and OpenCL kernels, scriptable pipelines and file exchange with QUIVER.
+authors:
+  - family-names: Mangiagalli
+    given-names: Matteo
+    affiliation: "Universita degli Studi di Urbino Carlo Bo"
+repository-code: "https://github.com/mattemangia/TomoSTAR"
+license: Apache-2.0
+version: 1.0.0
+date-released: 2026-09-30
+keywords:
+  - seismic tomography
+  - attenuation tomography
+  - t*
+  - fast marching method
+  - LSQR
+  - OpenCL
+  - earthquake location
