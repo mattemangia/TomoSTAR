@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TomoStar.Core", "src\TomoSt
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TomoStar.Cli", "src\TomoStar.Cli\TomoStar.Cli.csproj", "{E4AB60C4-0BF6-4CB9-8279-798E81522B08}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TomoStar.Tests", "tests\TomoStar.Tests\TomoStar.Tests.csproj", "{F9B63648-1890-47FF-8ABD-68F6A68357BF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +47,18 @@ Global
 		{E4AB60C4-0BF6-4CB9-8279-798E81522B08}.Release|x64.Build.0 = Release|Any CPU
 		{E4AB60C4-0BF6-4CB9-8279-798E81522B08}.Release|x86.ActiveCfg = Release|Any CPU
 		{E4AB60C4-0BF6-4CB9-8279-798E81522B08}.Release|x86.Build.0 = Release|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Debug|x64.Build.0 = Debug|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Debug|x86.Build.0 = Debug|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Release|x64.ActiveCfg = Release|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Release|x64.Build.0 = Release|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Release|x86.ActiveCfg = Release|Any CPU
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,5 +66,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{07C834EC-DBA0-4468-86CB-D7A449970D1B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E4AB60C4-0BF6-4CB9-8279-798E81522B08} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{F9B63648-1890-47FF-8ABD-68F6A68357BF} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

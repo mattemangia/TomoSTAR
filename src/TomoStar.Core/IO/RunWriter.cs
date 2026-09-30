@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Globalization;
 using System.Text;
 using System.Text.Json;

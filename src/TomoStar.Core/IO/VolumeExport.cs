@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
@@ -108,11 +111,11 @@ public static class VolumeExport
     private static string Escape(string s, bool asciiOnly = false)
     {
         var sb = new StringBuilder(s.Length);
+        Span<byte> utf8 = stackalloc byte[4];
         foreach (var rune in s.EnumerateRunes())
         {
             if (rune.Value is ';' or '=' or '%' or '\n' or '\r' || asciiOnly && rune.Value > 127)
             {
-                Span<byte> utf8 = stackalloc byte[4];
                 var n = rune.EncodeToUtf8(utf8);
                 for (var i = 0; i < n; i++) sb.Append('%').Append(utf8[i].ToString("X2", Inv));
             }

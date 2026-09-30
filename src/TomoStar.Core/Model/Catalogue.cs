@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 namespace TomoStar.Core.Model;
 
 /// <summary>A seismic station: position and the static corrections of an earlier run, if any.</summary>
