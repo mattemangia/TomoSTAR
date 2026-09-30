@@ -1,0 +1,26 @@
+[
+  {
+    "case": "rays",
+    "method": "ray paths traced back along the travel-time gradient",
+    "reference": "PyKonal",
+    "metric": "max deviation / ray length",
+    "value": 0.010433932452346473,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "rays": 30
+    }
+  },
+  {
+    "case": "rays",
+    "method": "travel time integrated along the ray (row of G)",
+    "reference": "eikonal travel time",
+    "metric": "max relative error",
+    "value": 0.009064842172795962,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "rays": 30
+    }
+  }
+]

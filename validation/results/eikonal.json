@@ -1,0 +1,58 @@
+[
+  {
+    "case": "eikonal",
+    "method": "fast marching, v = 4 + 0.05 z km/s",
+    "reference": "closed-form solution",
+    "metric": "max relative error",
+    "value": 0.011445182411968404,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "nodes": 5084,
+      "rms_relative_error": 0.002280419280356946
+    }
+  },
+  {
+    "case": "eikonal",
+    "method": "fast marching, ak135 first arrivals (P and S)",
+    "reference": "TauP (ObsPy)",
+    "metric": "max relative error",
+    "value": 0.009776120760510824,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "times": 300,
+      "rms_relative_error": 0.0029759486245437596,
+      "max_abs_error_s": 0.21669129949155774
+    }
+  },
+  {
+    "case": "eikonal",
+    "method": "fast marching, uniform medium, nodes beyond 3 km",
+    "reference": "exact solution",
+    "metric": "max relative error",
+    "value": 0.01401991375034786,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "nodes": 538018,
+      "pykonal_max_relative_error": 0.1317831776248538,
+      "pykonal_median_relative_error": 0.002946110644143752,
+      "tomostar_median_relative_error": 0.0017996853820623068
+    }
+  },
+  {
+    "case": "eikonal",
+    "method": "fast marching, 3-D spherical model, nodes beyond 5 km",
+    "reference": "PyKonal (grid refined 4 times)",
+    "metric": "max relative error",
+    "value": 0.024250019359846282,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "nodes": 1611964,
+      "rms_relative_error": 0.0019108179761909742,
+      "p99_relative_error": 0.00540611863492205
+    }
+  }
+]
