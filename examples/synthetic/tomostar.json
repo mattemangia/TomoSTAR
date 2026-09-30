@@ -1,0 +1,40 @@
+{
+  // Configuration of the synthetic example. Every setting not written here keeps its default;
+  // 'tomostar config --template' writes the complete list. Comments are allowed.
+  "StartingModel": "ak135",
+  "OutputFormats": [ "csv", "vtk" ],
+
+  "Synthetic": {
+    "Stations": 25,
+    "Events": 150,
+    "MinMagnitude": 2.0,
+    "MaxMagnitude": 4.0,
+    "NoiseTStar": 0.001,
+    "Waveforms": true
+  },
+
+  "Tomography": {
+    "Iterations": 5,
+    "InvertS": true,
+    "JointHypocentres": true,
+    "StationCorrections": true
+  },
+
+  "Attenuation": {
+    "Phase": "P",
+    "EstimateQ0": true,
+    "StationTerms": false
+  },
+
+  "LCurve": {
+    "Dampings": [ 2, 5, 10, 20, 50, 100 ],
+    "Smoothings": [ 5, 20, 80 ]
+  },
+
+  "Resolution": {
+    "CellKm": 16,
+    "CellDepthKm": 10,
+    "AmplitudePercent": 5,
+    "NoiseTStar": 0.001
+  }
+}
