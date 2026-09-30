@@ -39,6 +39,7 @@ where they appear in QUIVER's 3-D viewer, sections and diagnostics.
 - [Scripts](#scripts)
 - [Methods](#methods)
 - [Performance: SIMD, threads and OpenCL](#performance-simd-threads-and-opencl)
+- [A real example: the 2016-2017 central Italy sequence](#a-real-example-the-2016-2017-central-italy-sequence)
 - [Tests and validation](#tests-and-validation)
 - [Using the library](#using-the-library)
 - [Repository layout](#repository-layout)
@@ -498,6 +499,77 @@ parameterisations as the velocity inversion.
 On a four-core laptop CPU without a GPU, the whole synthetic example (25 stations, 150 events,
 7500 picks, every step from picking to Q resolution tests) runs in about 45 s.
 
+## A real example: the 2016-2017 central Italy sequence
+
+`examples/norcia2016` runs the whole sequence on real data: the M >= 2.5 earthquakes of the
+Amatrice-Visso-Norcia sequence (24 August 2016 to 1 March 2017) with the analyst picks of the INGV
+bulletin, the stations of every network recording in the area, and the waveforms of the M >= 3.5
+events for t\*. `download.sh` fetches the data from the FDSN web services of INGV and ORFEUS,
+`norcia.tomo` runs every step (each is skipped when its result already exists, so an interrupted
+study resumes where it stopped) and `figures.sh` draws the figures below with
+`tools/plot_tomostar.py`.
+
+```sh
+cd examples/norcia2016
+bash download.sh                 # about 1 GB; the waveforms take the longest
+tomostar run norcia.tomo
+bash figures.sh out figures
+```
+
+The data: 3569 earthquakes, 209 stations of seven networks, 204,694 P and 108,995 S picks. On four
+cores of a 2.1 GHz Xeon without a GPU:
+
+| Step | Result | Time |
+|---|---|---|
+| Absolute relocation in the starting 1-D model (Carannante et al., 2013, 2025) | 3569 of 3569 events located, median RMS 0.25 s | a few minutes |
+| Minimum 1-D model with station terms | RMS 0.258 s to 0.128 s | 102 s |
+| L-curve, 21 pairs of damping and smoothing | corner at damping 20, smoothing 30 | |
+| Vp and Vp/Vs tomography with hypocentres and station terms, 27 x 33 x 19 nodes | RMS 0.128 s to 0.103 s, variance reduction 34 % | 117 s |
+| The same on the adaptive grid | 5,595 cells, the same RMS | 123 s |
+| Checkerboard test, 12 x 12 x 6 km cells, 5 % | correlation 0.81 over the well-sampled nodes | |
+| t\* of the M >= 3.5 events, then Qp tomography | 2,819 P t\* from 283 events at 17 stations, reference Q 526, t\* RMS 12.4 ms to 9.7 ms | |
+
+**Vp change from the minimum 1-D model**, at 2, 6 and 10 km below sea level (nodes crossed by less
+than 50 km of ray are blank; dots: relocated earthquakes; triangles: stations). The model can be compared
+with the published tomographies of the sequence (e.g. Chiarabba et al., 2018).
+
+![Vp change](docs/figures/norcia_dvp.png)
+
+**Vp/Vs** on the same slices, and a WSW to ENE section of Vp through Norcia, across the fault system
+(earthquakes within 2 km of the section):
+
+![Vp/Vs](docs/figures/norcia_vpvs.png)
+
+![Vp section](docs/figures/norcia_section_vp.png)
+
+**Adaptive grid.** The same inversion on an octree grid that splits the cells crossed by many rays
+and keeps large cells where the rays are few. The size of the cells (top) and the model (bottom):
+
+![Adaptive cells](docs/figures/norcia_adaptive_cells.png)
+
+![Adaptive Vp change](docs/figures/norcia_adaptive_dvp.png)
+
+**Checkerboard test** on the real source-receiver geometry: the true pattern (top) and the pattern
+recovered from synthetic times with noise, inverted with the same settings as the data (bottom):
+
+![Checkerboard](docs/figures/norcia_checkerboard.png)
+
+**Qp** from the t\* of the M >= 3.5 events. With 17 stations the data resolve only weak lateral
+changes: the reference Q and the station terms (the site attenuation) already fit most of the t\*,
+and the L-curve keeps the 3-D model within a few per cent of the reference.
+
+![Qp](docs/figures/norcia_qp.png)
+
+The L-curve written by `tomostar lcurve` (one curve per smoothing weight, corners marked):
+
+![L-curve](docs/figures/norcia_lcurve.svg)
+
+The data are distributed by INGV and ORFEUS under the CC BY 4.0 licence. Cite them when you use
+them: the INGV bulletin (ISIDe Working Group, 2007) and the networks IV (INGV, 2005), MN (MedNet
+Project Partner Institutions, 1990), 3A (INGV, CNR-IGAG and CNR-IDPA, 2018), XO (EMERSITO Working Group, 2018),
+8P (Marzorati et al., 2023), VM (INGV, 2023) and 5M (Wölbern et al., 2020). The DOIs are in the
+[references](#references).
+
 ## Tests and validation
 
 `dotnet test` runs the test suite:
@@ -581,67 +653,107 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
 
 - Aki, K., and Lee, W. H. K. (1976). Determination of three-dimensional velocity anomalies under a
   seismic array using first P arrival times from local earthquakes: 1. A homogeneous initial model.
-  Journal of Geophysical Research, 81(23), 4381-4399.
-- Allen, R. V. (1978). Automatic earthquake recognition and timing from single traces. Bulletin of the
-  Seismological Society of America, 68(5), 1521-1532.
+  Journal of Geophysical Research, 81(23), 4381-4399. https://doi.org/10.1029/JB081i023p04381
+- Allen, R. V. (1978). Automatic earthquake recognition and timing from single traces. Bulletin of
+  the Seismological Society of America, 68(5), 1521-1532. https://doi.org/10.1785/BSSA0680051521
 - Brune, J. N. (1970). Tectonic stress and the spectra of seismic shear waves from earthquakes.
-  Journal of Geophysical Research, 75(26), 4997-5009.
+  Journal of Geophysical Research, 75(26), 4997-5009. https://doi.org/10.1029/JB075i026p04997
+- Carannante, S., Cattaneo, M., and Monachesi, G. (2025). 1D and 3D velocity models of Umbria-Marche
+  Region (Central Italy) [data set]. Zenodo. https://doi.org/10.5281/zenodo.16535187
+- Carannante, S., Monachesi, G., Cattaneo, M., Amato, A., and Chiarabba, C. (2013). Deep structure
+  and tectonics of the northern-central Apennines as seen by regional-scale tomography and 3-D
+  located earthquakes. Journal of Geophysical Research: Solid Earth, 118(10), 5391-5403.
+  https://doi.org/10.1002/jgrb.50371
+- Chiarabba, C., De Gori, P., Cattaneo, M., Spallarossa, D., and Segou, M. (2018). Faults geometry
+  and the role of fluids in the 2016-2017 Central Italy seismic sequence. Geophysical Research
+  Letters, 45(14), 6963-6971. https://doi.org/10.1029/2018GL077485
 - Detrixhe, M., Gibou, F., and Min, C. (2013). A parallel fast sweeping method for the Eikonal
-  equation. Journal of Computational Physics, 237, 46-55.
+  equation. Journal of Computational Physics, 237, 46-55. https://doi.org/10.1016/j.jcp.2012.11.042
 - Eberhart-Phillips, D. (1986). Three-dimensional velocity structure in northern California Coast
   Ranges from inversion of local earthquake arrival times. Bulletin of the Seismological Society of
   America, 76(4), 1025-1052.
 - Eberhart-Phillips, D., and Chadwick, M. (2002). Three-dimensional attenuation model of the shallow
-  Hikurangi subduction zone in the Raukumara Peninsula, New Zealand. Journal of Geophysical Research,
-  107(B2), 2033.
+  Hikurangi subduction zone in the Raukumara Peninsula, New Zealand. Journal of Geophysical
+  Research, 107(B2), 2033. https://doi.org/10.1029/2000JB000046
+- EMERSITO Working Group (2018). Rete sismica del gruppo EMERSITO, sequenza sismica del 2016 in
+  Italia Centrale [data set, network XO]. Istituto Nazionale di Geofisica e Vulcanologia (INGV).
+  https://doi.org/10.13127/SD/7TXEGDO5X8
 - Geiger, L. (1912). Probability method for the determination of earthquake epicenters from the
   arrival time only. Bulletin of Saint Louis University, 8, 60-71.
-- Hansen, P. C. (1992). Analysis of discrete ill-posed problems by means of the L-curve. SIAM Review,
-  34(4), 561-580.
+- Hansen, P. C. (1992). Analysis of discrete ill-posed problems by means of the L-curve. SIAM
+  Review, 34(4), 561-580. https://doi.org/10.1137/1034115
 - Humphreys, E., and Clayton, R. W. (1988). Adaptation of back projection tomography to seismic
   travel time problems. Journal of Geophysical Research, 93(B2), 1073-1085.
+  https://doi.org/10.1029/JB093iB02p01073
+- INGV (2005). Rete Sismica Nazionale (RSN) [data set, network IV]. Istituto Nazionale di Geofisica
+  e Vulcanologia (INGV). https://doi.org/10.13127/SD/X0FXNH7QFY
+- INGV (2023). Seismic Data acquired by Marche Seismic Network (MSN) [data set, network VM].
+  Istituto Nazionale di Geofisica e Vulcanologia (INGV). https://doi.org/10.13127/SD/Z7HOI9U3IX
+- INGV, CNR-IGAG and CNR-IDPA (2018). Rete del Centro di Microzonazione Sismica (CentroMZ), sequenza
+  sismica del 2016 in Italia Centrale [data set, network 3A]. Istituto Nazionale di Geofisica e
+  Vulcanologia (INGV). https://doi.org/10.13127/SD/KU7XM12YY9
+- ISIDe Working Group (2007). Italian Seismological Instrumental and Parametric Database (ISIDe)
+  [data set]. Istituto Nazionale di Geofisica e Vulcanologia (INGV). https://doi.org/10.13127/ISIDE
 - Kissling, E., Ellsworth, W. L., Eberhart-Phillips, D., and Kradolfer, U. (1994). Initial reference
   models in local earthquake tomography. Journal of Geophysical Research, 99(B10), 19635-19646.
-- Lomax, A., Virieux, J., Volant, P., and Berge-Thierry, C. (2000). Probabilistic earthquake location
-  in 3D and layered models. In Advances in Seismic Event Location, Kluwer, 101-134.
-- Maeda, N. (1985). A method for reading and checking phase times in autoprocessing system of seismic
-  wave data. Zisin, 38, 365-379.
-- Paige, C. C., and Saunders, M. A. (1982). LSQR: An algorithm for sparse linear equations and sparse
-  least squares. ACM Transactions on Mathematical Software, 8(1), 43-71.
+  https://doi.org/10.1029/93JB03138
+- Lomax, A., Virieux, J., Volant, P., and Berge-Thierry, C. (2000). Probabilistic earthquake
+  location in 3D and layered models. In Advances in Seismic Event Location, Kluwer, 101-134.
+  https://doi.org/10.1007/978-94-015-9536-0_5
+- Maeda, N. (1985). A method for reading and checking phase times in autoprocessing system of
+  seismic wave data. Zisin, 38, 365-379. https://doi.org/10.4294/zisin1948.38.3_365
+- Marzorati, S., Moretti, M., Margheriti, L., Pondrelli, S., et al. (2023). Seismic Data acquired by
+  the SISMIKO Emergency Group, Central Italy 2016, T12 [data set, network 8P]. Istituto Nazionale di
+  Geofisica e Vulcanologia (INGV). https://doi.org/10.13127/SD/2PNSQ5UATQ
+- MedNet Project Partner Institutions (1990). Mediterranean Very Broadband Seismographic Network
+  (MedNet) [data set, network MN]. Istituto Nazionale di Geofisica e Vulcanologia (INGV).
+  https://doi.org/10.13127/SD/FBBBTDTD6Q
+- Paige, C. C., and Saunders, M. A. (1982). LSQR: An algorithm for sparse linear equations and
+  sparse least squares. ACM Transactions on Mathematical Software, 8(1), 43-71.
+  https://doi.org/10.1145/355984.355989
 - Perona, P., and Malik, J. (1990). Scale-space and edge detection using anisotropic diffusion. IEEE
   Transactions on Pattern Analysis and Machine Intelligence, 12(7), 629-639.
+  https://doi.org/10.1109/34.56205
 - Rawlinson, N., and Sambridge, M. (2004). Wave front evolution in strongly heterogeneous layered
   media using the fast marching method. Geophysical Journal International, 156(3), 631-647.
+  https://doi.org/10.1111/j.1365-246X.2004.02153.x
 - Rietbrock, A. (2001). P wave attenuation structure in the fault area of the 1995 Kobe earthquake.
-  Journal of Geophysical Research, 106(B3), 4141-4154.
-- Rouy, E., and Tourin, A. (1992). A viscosity solutions approach to shape-from-shading. SIAM Journal
-  on Numerical Analysis, 29(3), 867-884.
+  Journal of Geophysical Research, 106(B3), 4141-4154. https://doi.org/10.1029/2000JB900234
+- Rouy, E., and Tourin, A. (1992). A viscosity solutions approach to shape-from-shading. SIAM
+  Journal on Numerical Analysis, 29(3), 867-884. https://doi.org/10.1137/0729053
 - Rudin, L. I., Osher, S., and Fatemi, E. (1992). Nonlinear total variation based noise removal
-  algorithms. Physica D, 60, 259-268.
+  algorithms. Physica D, 60, 259-268. https://doi.org/10.1016/0167-2789(92)90242-F
 - Sethian, J. A. (1996). A fast marching level set method for monotonically advancing fronts.
   Proceedings of the National Academy of Sciences, 93(4), 1591-1595.
+  https://doi.org/10.1073/pnas.93.4.1591
 - Sethian, J. A., and Popovici, A. M. (1999). 3-D traveltime computation using the fast marching
-  method. Geophysics, 64(2), 516-523.
+  method. Geophysics, 64(2), 516-523. https://doi.org/10.1190/1.1444558
 - Spakman, W., and Nolet, G. (1988). Imaging algorithms, accuracy and resolution in delay time
   tomography. In Mathematical Geophysics, Reidel, 155-187.
+  https://doi.org/10.1007/978-94-009-2857-2_8
 - Stachnik, J. C., Abers, G. A., and Christensen, D. H. (2004). Seismic attenuation and mantle wedge
   temperatures in the Alaska subduction zone. Journal of Geophysical Research, 109, B10304.
+  https://doi.org/10.1029/2004JB003018
 - Thomson, D. J. (1982). Spectrum estimation and harmonic analysis. Proceedings of the IEEE, 70(9),
-  1055-1096.
+  1055-1096. https://doi.org/10.1109/PROC.1982.12433
 - Thurber, C. H. (1983). Earthquake locations and three-dimensional crustal structure in the Coyote
   Lake area, central California. Journal of Geophysical Research, 88(B10), 8226-8236.
+  https://doi.org/10.1029/JB088iB10p08226
 - Thurber, C. H. (1993). Local earthquake tomography: velocities and Vp/Vs, theory. In Seismic
   Tomography: Theory and Practice, Chapman and Hall, 563-583.
 - Toomey, D. R., and Foulger, G. R. (1989). Tomographic inversion of local earthquake data from the
   Hengill-Grensdalur central volcano complex, Iceland. Journal of Geophysical Research, 94(B12),
-  17497-17510.
+  17497-17510. https://doi.org/10.1029/JB094iB12p17497
 - Waldhauser, F., and Ellsworth, W. L. (2000). A double-difference earthquake location algorithm:
   method and application to the northern Hayward fault, California. Bulletin of the Seismological
-  Society of America, 90(6), 1353-1368.
+  Society of America, 90(6), 1353-1368. https://doi.org/10.1785/0120000006
 - Wei, S. S., and Wiens, D. A. (2018). P-wave attenuation structure of the Lau back-arc basin and
   implications for mantle wedge processes. Earth and Planetary Science Letters, 502, 187-199.
+  https://doi.org/10.1016/j.epsl.2018.09.005
+- Wölbern, I., Rümpker, G., and Leva, C. (2020). FOSA [data set, network 5M]. GFZ Data Services.
+  https://doi.org/10.14470/0Z7560909466
 - Zhang, H., and Thurber, C. H. (2003). Double-difference tomography: the method and its application
   to the Hayward fault, California. Bulletin of the Seismological Society of America, 93(5),
-  1875-1889.
+  1875-1889. https://doi.org/10.1785/0120020190
 - Zhao, H. (2005). A fast sweeping method for eikonal equations. Mathematics of Computation,
-  74(250), 603-627.
+  74(250), 603-627. https://doi.org/10.1090/S0025-5718-04-01678-3
