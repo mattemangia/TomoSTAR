@@ -1,0 +1,78 @@
+[
+  {
+    "case": "signal",
+    "method": "recursive STA/LTA",
+    "reference": "ObsPy recursive_sta_lta",
+    "metric": "max relative difference after 3 LTA",
+    "value": 0.05162504047180679,
+    "threshold": 0.05,
+    "pass": false,
+    "details": {}
+  },
+  {
+    "case": "signal",
+    "method": "instrument response removal to velocity",
+    "reference": "ObsPy remove_response",
+    "metric": "max relative L2 difference",
+    "value": 0.038686235600355445,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "traces": 24,
+      "pre_filter_hz": [
+        0.2,
+        0.5,
+        20.0,
+        30.0
+      ],
+      "water_level_db": 60,
+      "max_on_records_of_50_s_or_more": 0.007067231875423423,
+      "note": "short records are gap fragments; the residual difference is the FFT length (TomoSTAR pads to a power of 2) and the digital FIR stages TomoSTAR does not model"
+    }
+  },
+  {
+    "case": "signal",
+    "method": "Butterworth band-pass 1-15 Hz, orders 2 and 4, causal and zero phase",
+    "reference": "SciPy butter + sosfilt",
+    "metric": "max relative L2 difference",
+    "value": 5.8894690510005743e-08,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {}
+  },
+  {
+    "case": "signal",
+    "method": "Slepian (DPSS) tapers",
+    "reference": "SciPy dpss",
+    "metric": "max L2 difference of the unit-norm tapers",
+    "value": 5.206358200456899e-13,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {}
+  },
+  {
+    "case": "signal",
+    "method": "recursive STA/LTA",
+    "reference": "ObsPy recursive_sta_lta",
+    "metric": "max relative difference after 8 LTA",
+    "value": 7.102795890768569e-08,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "samples_compared": 4452
+    }
+  },
+  {
+    "case": "signal",
+    "method": "AIC function of the onset picker (Maeda 1985)",
+    "reference": "ObsPy aic_simple (aligned by one sample)",
+    "metric": "max relative difference",
+    "value": 3.61555755975881e-15,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "onset_tomostar": 1348,
+      "onset_obspy_plus_one": 1348
+    }
+  }
+]
