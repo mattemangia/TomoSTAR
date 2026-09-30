@@ -1,0 +1,17 @@
+<Project>
+  <!-- Settings shared by every project of the solution. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.0.0</Version>
+    <Product>TomoSTAR</Product>
+    <Authors>Matteo Mangiagalli</Authors>
+    <Company>Universita degli Studi di Urbino Carlo Bo</Company>
+    <Copyright>Copyright 2026 Matteo Mangiagalli</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The numerical engine: geometry, eikonal solvers, ray tracing, sparse least squares,
+       travel-time and attenuation tomography, and the file formats. No console code here, so the
+       library can be embedded in other programs and tested on its own. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>TomoStar.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TomoStar.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MIT. OpenCL bindings for the eikonal and LSQR kernels; the CPU path is used when no
+         OpenCL runtime or no suitable device is present. -->
+    <PackageReference Include="Silk.NET.OpenCL" Version="2.23.0" />
+    <!-- MIT (Microsoft.Data.Sqlite), Apache-2.0 (SQLitePCLRaw), public domain (SQLite).
+         Read-only access to the catalogue of a QUIVER project. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
+</Project>
