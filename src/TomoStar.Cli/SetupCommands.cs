@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json;
@@ -128,6 +131,7 @@ public static class SetupCommands
         var text = $"# {model.Name}\n# {model.Reference}\n# depth_km vp_km_s vs_km_s\n{model.Format()}\n";
         if (c.Args.Get("out") is { } outFile)
         {
+            EnsureFolder(outFile);
             File.WriteAllText(outFile, text);
             Console.WriteLine($"Written {outFile}.");
         }
@@ -136,10 +140,18 @@ public static class SetupCommands
         {
             var g = new SphericalGrid(CatalogueReader.ReadGrid(gridFile));
             var profile = c.Args.Get("profile") ?? "profile1d.csv";
+            EnsureFolder(profile);
             WriteProfile(profile, model, g.DepthKm);
             Console.WriteLine($"Profile at the {g.Nz} grid depths written to {profile}.");
         }
         return 0;
+    }
+
+    /// <summary>Creates the folder of an output file.</summary>
+    private static void EnsureFolder(string file)
+    {
+        var dir = Path.GetDirectoryName(Path.GetFullPath(file));
+        if (dir != null) Directory.CreateDirectory(dir);
     }
 
     // ---- config -------------------------------------------------------------------------------------
@@ -149,6 +161,7 @@ public static class SetupCommands
         if (c.Args.Flag("template"))
         {
             var path = c.Args.Get("out") ?? "tomostar.json";
+            EnsureFolder(path);
             File.WriteAllText(path, new TomoConfig().ToJson());
             Console.WriteLine($"Configuration template with every setting and its default written to {path}.");
             return 0;

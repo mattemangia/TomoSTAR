@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
@@ -111,8 +114,8 @@ public static class CatalogueReader
     }
 
     /// <summary>
-    /// Pick table. Columns: <c>event</c>, <c>station</c>, <c>phase</c> (P or S; Pg, Pn, Sg, Sn... are
-    /// read by their first letter), and either <c>time</c> (absolute UTC) or <c>travel_time_s</c>
+    /// Pick table. Columns: <c>event</c>, <c>station</c>, <c>phase</c> (P or S; Pg, Pn, Pb, Sg, Sn, Sb are
+    /// taken as P or S, later phases are skipped), and either <c>time</c> (absolute UTC) or <c>travel_time_s</c>
     /// (seconds after the origin time); optional <c>sigma_s</c> (default 0.1 s for P, 0.2 s for S),
     /// <c>quality</c> (0 to 4, 4 = unusable), <c>origin</c> (manual, catalog, automatic) and
     /// <c>disabled</c>.
@@ -182,17 +185,11 @@ public static class CatalogueReader
         }
     }
 
-    /// <summary>P or S from a phase label (P, Pg, Pn, Pb, S, Sg, Sn...); null for anything else.</summary>
-    public static Phase? ParsePhase(string label)
-    {
-        if (label.Length == 0) return null;
-        return char.ToUpperInvariant(label[0]) switch
-        {
-            'P' => Phase.P,
-            'S' => Phase.S,
-            _ => null
-        };
-    }
+    /// <summary>
+    /// P or S from a phase label: the first-arrival labels P, Pg, Pn, Pb, P* (and S alike), as in
+    /// QuakeML; later phases (PmP, SmS, pP, ...) are not first arrivals and give null.
+    /// </summary>
+    public static Phase? ParsePhase(string label) => QuakeMl.MapPhase(label);
 
     // ---- QUIVER project ------------------------------------------------------------------------
 

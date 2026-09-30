@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 using TomoStar.Core.Geo;
 using TomoStar.Core.IO;
 using TomoStar.Core.Model;

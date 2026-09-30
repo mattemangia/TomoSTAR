@@ -8,6 +8,8 @@
     <RootNamespace>TomoStar.Cli</RootNamespace>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <TieredPGO>true</TieredPGO>
+    <!-- A single-file publish carries the native SQLite library inside the executable. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>

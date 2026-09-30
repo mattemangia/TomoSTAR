@@ -1,3 +1,6 @@
+// Copyright 2026 Matteo Mangiagalli
+// SPDX-License-Identifier: Apache-2.0
+
 namespace TomoStar.Core.Numerics;
 
 /// <summary>What LSQR needs of a matrix: its shape and the products A·x and Aᵀ·x.</summary>
