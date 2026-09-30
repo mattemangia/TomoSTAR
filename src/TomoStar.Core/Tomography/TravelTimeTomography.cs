@@ -1021,7 +1021,7 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
     {
         var g = r.Grid;
         var per = g.Nx * g.Ny;
-        var m = new VelocityModel1D { Name = name, Reference = "minimum 1-D model (Kissling et al. 1994) from the project's picks" };
+        var m = new VelocityModel1D { Name = name, Reference = "minimum 1-D model (Kissling et al. 1994) from the picks" };
         for (var k = 0; k < g.Nz; k++)
         {
             double vp = 0, vs = 0;
