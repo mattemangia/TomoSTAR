@@ -10,3 +10,4 @@ TestResults/
 /examples/norcia2016/data/
 /examples/norcia2016/out/
 /validation/work/
+__pycache__/

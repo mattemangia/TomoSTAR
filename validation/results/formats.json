@@ -1,0 +1,67 @@
+[
+  {
+    "case": "formats",
+    "method": "miniSEED reader (samples, start times)",
+    "reference": "ObsPy read",
+    "metric": "max relative sample difference",
+    "value": 0.0,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "traces": 24,
+      "samples": 177732
+    }
+  },
+  {
+    "case": "formats",
+    "method": "QuakeML reader (origins)",
+    "reference": "ObsPy read_events",
+    "metric": "max difference (degrees, s, and depth / 100 km)",
+    "value": 0.0,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "events": 3
+    }
+  },
+  {
+    "case": "formats",
+    "method": "QuakeML reader (associated P and S picks)",
+    "reference": "ObsPy read_events",
+    "metric": "max time difference (s)",
+    "value": 0.0,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "picks": 686
+    }
+  },
+  {
+    "case": "formats",
+    "method": "StationXML reader (station coordinates)",
+    "reference": "ObsPy read_inventory",
+    "metric": "max difference (degrees, km)",
+    "value": 0.0,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "stations": 8
+    }
+  },
+  {
+    "case": "formats",
+    "method": "instrument response amplitude (poles and zeros, sensitivity)",
+    "reference": "ObsPy evalresp (all stages)",
+    "metric": "max relative error in the pass band",
+    "value": 0.03212089172957861,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "channels": 48,
+      "frequencies_hz": [
+        0.2,
+        20.000000000000004
+      ]
+    }
+  }
+]
