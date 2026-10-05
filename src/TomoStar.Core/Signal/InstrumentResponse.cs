@@ -22,6 +22,21 @@ public sealed class PolesZerosStage
     public double NormalizationFactor { get; set; } = 1;
     public double NormalizationFrequency { get; set; } = 1;
 
+    /// <summary>Frequency at which the stage gain is declared, Hz (NaN: the normalisation frequency).</summary>
+    public double GainFrequency { get; set; } = double.NaN;
+
+    /// <summary>
+    /// The stage scaled so that the stage gain holds at its own frequency when that differs from the
+    /// normalisation frequency: A0 H(f) · |A0 H(f_norm)| / |A0 H(f_gain)| (the convention of evalresp).
+    /// </summary>
+    public Complex EvaluateWithGainFrequency(double f)
+    {
+        var h = Evaluate(f);
+        if (!double.IsFinite(GainFrequency) || Math.Abs(GainFrequency - NormalizationFrequency) < 1e-9) return h;
+        var atGain = Evaluate(GainFrequency).Magnitude;
+        return atGain > 0 ? h * (Evaluate(NormalizationFrequency).Magnitude / atGain) : h;
+    }
+
     /// <summary>Zeros and poles as [real, imaginary] pairs.</summary>
     public List<double[]> Zeros { get; set; } = [];
 
@@ -41,19 +56,95 @@ public sealed class PolesZerosStage
 }
 
 /// <summary>
+/// A digital stage of a StationXML response (FIR or coefficients, numerator only), normalised to 1 at
+/// zero frequency as evalresp normalises FIR filters. Symmetric (linear-phase) filters are a pure
+/// amplitude; asymmetric ones keep their phase less the digitiser's time-stamp correction (IV.GIGS in
+/// 2016 has an asymmetric stage without correction: 0.03 s of delay, three samples at 100 Hz).
+/// </summary>
+public sealed class DigitalStage
+{
+    /// <summary>Sampling rate at the input of the stage, Hz.</summary>
+    public double InputSampleRate { get; set; }
+
+    /// <summary>The full set of numerator coefficients (symmetric halves already expanded).</summary>
+    public double[] Coefficients { get; set; } = [];
+
+    /// <summary>Delay of the stage and the correction applied to the time stamps for it, s.</summary>
+    public double Delay { get; set; }
+
+    public double Correction { get; set; }
+
+    /// <summary>
+    /// The stage's complex factor at f, by the convention of evalresp: a symmetric filter is taken as
+    /// zero phase, Σ bₖ cos(2πf (k − (N−1)/2) / fs) / Σ bₖ (its delay is the one digitisers correct);
+    /// an asymmetric one keeps its phase, Σ bₖ e^(−2πi f k / fs) / Σ bₖ, times e^(2πi f c) for the
+    /// correction c applied to the time stamps.
+    /// </summary>
+    public Complex Evaluate(double f)
+    {
+        var n = Coefficients.Length;
+        if (n < 2 || InputSampleRate <= 0) return Complex.One;
+        var sum = Coefficients.Sum();
+        if (Math.Abs(sum) == 0) return Complex.One;
+        var w = 2 * Math.PI * f / InputSampleRate;
+        if (Symmetric)
+        {
+            double re = 0;
+            for (var k = 0; k < n; k++) re += Coefficients[k] * Math.Cos(w * (k - 0.5 * (n - 1)));
+            return new Complex(re / Math.Abs(sum), 0);
+        }
+        var h = Complex.Zero;
+        for (var k = 0; k < n; k++) h += Coefficients[k] * Complex.FromPolarCoordinates(1, -w * k);
+        return h / Math.Abs(sum) * Complex.FromPolarCoordinates(1, 2 * Math.PI * f * Correction);
+    }
+
+    /// <summary>The coefficients read the same backwards (to a part in 10⁶ of the largest).</summary>
+    public bool Symmetric
+    {
+        get
+        {
+            var n = Coefficients.Length;
+            var tol = 1e-6 * Coefficients.Max(Math.Abs);
+            for (var k = 0; k < n / 2; k++)
+                if (Math.Abs(Coefficients[k] - Coefficients[n - 1 - k]) > tol) return false;
+            return true;
+        }
+    }
+}
+
+/// <summary>
 /// The response of a channel from StationXML: the overall sensitivity (counts per input unit at a
-/// frequency) and the shape of the analogue poles-and-zeros stages. The complex response is
-/// R(f) = S · H(f) / |H(f_S)|, H being the product of the poles-and-zeros stages: the amplitude is
-/// exactly the sensitivity at its frequency and the shape and phase are those of the analogue
-/// stages. Digital FIR stages are not modelled; their passband is flat to within a few percent up
-/// to about 80% of the Nyquist frequency, where the pre-filter of the deconvolution cuts anyway.
+/// frequency), the product of the stage gains and the analogue poles-and-zeros stages. When every
+/// stage declares its gain, the complex response is R(f) = G · Π A0ₖ Hₖ(f), G being the product of
+/// the stage gains and A0ₖ Hₖ the normalised poles-and-zeros stages (each rescaled so that its gain
+/// holds at its declared gain frequency), as evalresp (and so ObsPy) computes it; otherwise R(f) = S · H(f) / |H(f_S)|, the shape of the analogue stages scaled to the
+/// sensitivity at its frequency. The two agree when the metadata are consistent; where they are
+/// not, the stage description is the one to trust: on the INGV metadata of 2012 for IV.SAP2 the
+/// sensitivity of a 1 Hz geophone is declared at 0.2 Hz but holds at 1 Hz, which the second form
+/// turned into a response 25 times too high. The amplitude of the digital stages multiplies both
+/// forms: most decimation filters are flat in their passband, but some are not (the binomial
+/// filters of the IV digitisers of 2008-2009 halve the amplitude at 20 Hz on a 100 Hz channel).
 /// </summary>
 public sealed class InstrumentResponse
 {
     public string InputUnits { get; set; } = "";
     public double Sensitivity { get; set; } = 1;
     public double SensitivityFrequency { get; set; } = 1;
+
+    /// <summary>Product of the gains of all the stages, NaN when a stage declares none.</summary>
+    public double StageGain { get; set; } = double.NaN;
+
     public List<PolesZerosStage> Stages { get; set; } = [];
+
+    /// <summary>Digital stages with coefficients (FIR and numerator-only coefficient stages).</summary>
+    public List<DigitalStage> DigitalStages { get; set; } = [];
+
+    private Complex Digital(double f)
+    {
+        var a = Complex.One;
+        foreach (var d in DigitalStages) a *= d.Evaluate(f);
+        return a;
+    }
 
     [JsonIgnore] public bool HasShape => Stages.Count > 0;
 
@@ -76,12 +167,19 @@ public sealed class InstrumentResponse
     /// <summary>Counts per input unit, complex, at frequency f.</summary>
     public Complex Evaluate(double f)
     {
-        if (!HasShape) return new Complex(Sensitivity, 0);
+        if (!HasShape) return Sensitivity * Digital(f) / Math.Max(1e-12, Digital(SensitivityFrequency).Magnitude);
+        if (double.IsFinite(StageGain) && StageGain > 0)
+        {
+            var g = Complex.One;
+            foreach (var s in Stages) g *= s.EvaluateWithGainFrequency(f);
+            return StageGain * g * Digital(f);
+        }
         var h = Complex.One;
         foreach (var s in Stages) h *= s.Evaluate(f);
+        h *= Digital(f);
         var h0 = Complex.One;
         foreach (var s in Stages) h0 *= s.Evaluate(SensitivityFrequency);
-        var m = h0.Magnitude;
+        var m = h0.Magnitude * Digital(SensitivityFrequency).Magnitude;
         return m > 0 ? Sensitivity * h / m : new Complex(Sensitivity, 0);
     }
 }

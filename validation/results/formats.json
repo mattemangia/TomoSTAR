@@ -8,8 +8,8 @@
     "threshold": 0.05,
     "pass": true,
     "details": {
-      "traces": 24,
-      "samples": 177732
+      "traces": 93,
+      "samples": 748380
     }
   },
   {
@@ -21,7 +21,7 @@
     "threshold": 0.05,
     "pass": true,
     "details": {
-      "events": 3
+      "events": 42
     }
   },
   {
@@ -33,7 +33,7 @@
     "threshold": 0.05,
     "pass": true,
     "details": {
-      "picks": 686
+      "picks": 5537
     }
   },
   {
@@ -45,7 +45,7 @@
     "threshold": 0.05,
     "pass": true,
     "details": {
-      "stations": 8
+      "stations": 209
     }
   },
   {
@@ -53,11 +53,11 @@
     "method": "instrument response amplitude (poles and zeros, sensitivity)",
     "reference": "ObsPy evalresp (all stages)",
     "metric": "max relative error in the pass band",
-    "value": 0.03212089172957861,
+    "value": 0.008335414413922581,
     "threshold": 0.05,
     "pass": true,
     "details": {
-      "channels": 48,
+      "channels": 1002,
       "frequencies_hz": [
         0.2,
         20.000000000000004
