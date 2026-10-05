@@ -150,7 +150,10 @@ The automatic picks are made without the analyst picks, around the times the exa
 3-D model predicts (window of 1 s plus 3 % of the travel time). Against the analysts' most precise
 picks (0.1 s), 95 % of the P picks are within 4.1 % of the travel time (median error 30 ms); the S
 picks are within 5.6 %, just above the limit, on 130 picks. S picking is the weakest step of the
-pipeline and its picks enter the inversions with larger uncertainties (1.5 times those of P). Part
+pipeline and its picks enter the inversions with larger uncertainties (1.5 times those of P). Two
+variants of the S onset were tried and rejected, the AIC on each horizontal component instead of
+their envelope, keeping the onset of higher SNR (16 %) or the earliest one (17 % at the 95th
+percentile): on single components the AIC falls on the P coda in a tail of cases. Part
 of the disagreement is on the analysts' side: some analyst picks were made on accelerometers, where
 an emergent onset visible on the broadband sensor is below the noise (IV.NRCA, event 10740261: a
 weak onset 0.83 s before the analyst pick).
