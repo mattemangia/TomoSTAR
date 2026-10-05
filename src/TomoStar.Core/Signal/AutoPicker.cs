@@ -41,8 +41,14 @@ public sealed record AutoPickResult(
 /// Automatic P and S picker.
 ///
 /// 1. A recursive STA/LTA (Allen 1978, BSSA 68(5), 1521-1532; recursive form after Withers et al.
-///    1998, BSSA 88(1), 95-106) finds the first trigger inside a window around the time the current
-///    model predicts; the window keeps the picker from locking onto noise bursts or later phases.
+///    1998, BSSA 88(1), 95-106) is computed and its upward crossings of the trigger level inside a
+///    window around the time the current model predicts are the candidate arrivals; the window
+///    widens with the predicted travel time (the model error grows with distance). Of the
+///    candidates at least half as strong as the strongest (strength: the highest STA/LTA within a
+///    second of the crossing), the one nearest the predicted time is kept, not the first: during a
+///    sequence the window often holds the coda or the arrival of another earthquake before the one
+///    sought (on the 2016-2017 central Italy data the first crossing put a third of the P picks of
+///    classes 1 to 3 more than a second early).
 /// 2. The onset is refined with the AIC picker of Maeda (1985, Zisin 38, 365-379): on the segment
 ///    around the trigger, AIC(k) = k·log var(x[0..k]) + (N−k−1)·log var(x[k+1..N]) is minimum where
 ///    the series splits best into "noise" and "signal".
@@ -54,8 +60,10 @@ public sealed record AutoPickResult(
 /// </summary>
 public static class AutoPicker
 {
+    /// <param name="origin">Origin time of the event: the travel time that widens the search window is
+    /// counted from it (from the start of the trace when it is not given).</param>
     public static List<AutoPickResult> PickStation(
-        IReadOnlyList<Trace> traces, DateTime? predictedP, DateTime? predictedS, AutoPickerSettings s)
+        IReadOnlyList<Trace> traces, DateTime? predictedP, DateTime? predictedS, AutoPickerSettings s, DateTime? origin = null)
     {
         var results = new List<AutoPickResult>();
         var z = traces.FirstOrDefault(t => t.IsVertical) ?? traces.FirstOrDefault();
@@ -63,7 +71,7 @@ public static class AutoPicker
         var horizontals = traces.Where(t => !t.IsVertical && Math.Abs(t.SampleRate - z.SampleRate) < 1e-6).ToList();
 
         var zf = SignalProcessing.Prepare(z.Data, z.SampleRate, s.FilterLowHz, s.FilterHighHz, 4, s.ZeroPhaseFilter);
-        var p = PickOne(zf, z, predictedP, Phase.P, s);
+        var p = PickOne(zf, z, predictedP, Phase.P, s, origin);
         if (p != null) results.Add(p);
 
         if (s.PickS)
@@ -102,19 +110,20 @@ public static class AutoPicker
                 var gap = predictedS is { } ps && predictedP is { } pp ? 0.5 * (ps - pp).TotalSeconds : 0;
                 notBefore = p.Time.AddSeconds(Math.Max(0.5, gap));
             }
-            var sPick = PickOne(energy, reference, predictedS, Phase.S, s, notBefore);
+            var sPick = PickOne(energy, reference, predictedS, Phase.S, s, origin, notBefore);
             if (sPick != null) results.Add(sPick);
         }
         return results;
     }
 
-    private static AutoPickResult? PickOne(float[] x, Trace trace, DateTime? predicted, Phase phase, AutoPickerSettings s, DateTime? notBefore = null)
+    private static AutoPickResult? PickOne(float[] x, Trace trace, DateTime? predicted, Phase phase, AutoPickerSettings s, DateTime? origin,
+        DateTime? notBefore = null)
     {
         var fs = trace.SampleRate;
         int lo, hi;
         if (predicted is { } tp)
         {
-            var travel = Math.Max(0, (tp - trace.StartTime).TotalSeconds);
+            var travel = Math.Max(0, (tp - (origin ?? trace.StartTime)).TotalSeconds);
             var half = s.WindowSeconds + s.WindowPerSecond * travel;
             lo = trace.IndexOf(tp.AddSeconds(-half));
             hi = trace.IndexOf(tp.AddSeconds(half));
@@ -131,12 +140,24 @@ public static class AutoPicker
 
         var cf = StaLta(x, fs, s.StaSeconds, s.LtaSeconds);
         var warm = (int)(s.LtaSeconds * fs);
-        // The first upward crossing of the threshold: a window that opens while an earlier arrival
-        // still holds the ratio up must not trigger on that arrival.
-        var trigger = -1;
+        // Upward crossings of the threshold (a window that opens while an earlier arrival still holds
+        // the ratio up must not trigger on that arrival), each with its strength: the highest STA/LTA
+        // within a second of the crossing. Of the arrivals at least half as strong as the strongest,
+        // the one nearest the predicted time (the first when nothing is predicted).
+        var candidates = new List<(int Index, double Peak)>();
+        var peakSamples = (int)fs;
         for (var i = Math.Max(Math.Max(lo, warm), 1); i <= hi; i++)
-            if (cf[i] >= s.TriggerOn && cf[i - 1] < s.TriggerOn) { trigger = i; break; }
-        if (trigger < 0) return null;
+        {
+            if (!(cf[i] >= s.TriggerOn && cf[i - 1] < s.TriggerOn)) continue;
+            double peak = 0;
+            for (var k = i; k < Math.Min(cf.Length, i + peakSamples); k++) peak = Math.Max(peak, cf[k]);
+            candidates.Add((i, peak));
+        }
+        if (candidates.Count == 0) return null;
+        var strongest = candidates.Max(c => c.Peak);
+        var strong = candidates.Where(c => c.Peak >= 0.5 * strongest).ToList();
+        var expected = predicted is { } te ? trace.IndexOf(te) : strong[0].Index;
+        var trigger = strong.OrderBy(c => Math.Abs(c.Index - expected)).First().Index;
 
         // AIC on a segment around the trigger: onsets lie before the STA/LTA trigger.
         var a = Math.Max(0, trigger - (int)(Math.Max(1.0, 2 * s.StaSeconds + 1) * fs));

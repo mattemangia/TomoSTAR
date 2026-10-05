@@ -460,10 +460,13 @@ of Vp and Vs structure into Vp/Vs, 1/Q, and the leakage of velocity errors into 
 between true and recovered patterns is reported over the sampled and the well-sampled nodes (derivative
 weight sum, Toomey and Foulger 1989).
 
-**Picking.** The recursive STA/LTA (Allen 1978) finds the first trigger in a window around the
-arrival the model predicts; the onset is refined with the AIC picker (Maeda 1985); the quality class
-and uncertainty follow the signal-to-noise ratio. P is picked on the vertical, S on the energy of the
-horizontals, after the P pick.
+**Picking.** The recursive STA/LTA (Allen 1978) gives the candidate arrivals in a window around the
+arrival the model predicts (wider at larger travel times; `Picker.WindowSeconds` and
+`Picker.WindowPerSecond`); of the candidates at least half as strong as the strongest, the one nearest
+the predicted time is kept, so that the coda or the arrival of another earthquake earlier in the
+window is not taken during a sequence. The onset is refined with the AIC picker (Maeda 1985); the
+quality class and uncertainty follow the signal-to-noise ratio. P is picked on the vertical, S on the
+energy of the horizontals, after the P pick.
 
 **Location.** Each event is located by a grid search on the travel-time tables (L1 misfit with the
 weighted-median origin time; after Lomax et al. 2000), refined by Geiger's method (Geiger 1912) as a

@@ -39,8 +39,12 @@ def record(case, method, reference, metric, value, threshold=THRESHOLD, details=
     path = os.path.join(RESULTS, f"{case}.json")
     rows = json.load(open(path)) if os.path.exists(path) else []
     rows = [r for r in rows if not (r["method"] == method and r["metric"] == metric)]
+    # threshold None: a comparison reported for information (the reference used other input, so the
+    # difference measures the input rather than the code); it has no pass or fail.
     rows.append({"case": case, "method": method, "reference": reference, "metric": metric,
-                 "value": float(value), "threshold": float(threshold), "pass": bool(value < threshold),
-                 "details": details or {}})
+                 "value": float(value), "threshold": None if threshold is None else float(threshold),
+                 "pass": None if threshold is None else bool(value < threshold), "details": details or {}})
     json.dump(rows, open(path, "w"), indent=2)
-    print(f"[{'PASS' if value < threshold else 'FAIL'}] {case}: {method} vs {reference}: {metric} = {value:.4g} (limit {threshold:g})")
+    status = "INFO" if threshold is None else ("PASS" if value < threshold else "FAIL")
+    limit = "" if threshold is None else f" (limit {threshold:g})"
+    print(f"[{status}] {case}: {method} vs {reference}: {metric} = {value:.4g}{limit}")
