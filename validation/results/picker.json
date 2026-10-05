@@ -2,6 +2,23 @@
   {
     "case": "picker",
     "method": "automatic P picks (STA/LTA trigger, AIC onset) on real waveforms",
+    "reference": "INGV analyst picks of the same records, most precise class (0.1 s)",
+    "metric": "95th percentile of |t_auto - t_analyst| / travel time",
+    "value": 0.041078877620767944,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "matched_picks": 2432,
+      "median_abs_s": 0.03,
+      "p95_abs_s": 0.150145,
+      "mean_s": 0.015202467105263162,
+      "within_0.1_s": 0.8922697368421053,
+      "median_relative": 0.006077854441757351
+    }
+  },
+  {
+    "case": "picker",
+    "method": "automatic P picks (STA/LTA trigger, AIC onset) on real waveforms",
     "reference": "INGV analyst picks of the same records, all classes (0.1 to 1 s)",
     "metric": "95th percentile of |t_auto - t_analyst| / travel time",
     "value": 0.0696706282754985,
@@ -14,6 +31,23 @@
       "mean_s": -0.012039468567725212,
       "within_0.1_s": 0.8075178224238496,
       "median_relative": 0.007044455773965038
+    }
+  },
+  {
+    "case": "picker",
+    "method": "automatic S picks (STA/LTA trigger, AIC onset) on real waveforms",
+    "reference": "INGV analyst picks of the same records, most precise class (0.1 s)",
+    "metric": "95th percentile of |t_auto - t_analyst| / travel time",
+    "value": 0.05568826092271185,
+    "threshold": 0.05,
+    "pass": false,
+    "details": {
+      "matched_picks": 130,
+      "median_abs_s": 0.13005,
+      "p95_abs_s": 0.5739449999999998,
+      "mean_s": 0.04866153846153846,
+      "within_0.1_s": 0.38461538461538464,
+      "median_relative": 0.014538271818414798
     }
   },
   {

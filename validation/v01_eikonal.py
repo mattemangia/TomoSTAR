@@ -109,26 +109,32 @@ for r in case["Rows"]:
 rel_t, deviation, kernel = [], [], []
 for st in case["Stations"]:
     for phase in ("P", "S"):
-        solver = pykonal_solver(g, fine[phase], st, F)
-        for r in rows[(st["Id"], phase)]:
-            d = np.linalg.norm(xyz(r["Lon"], r["Lat"], r["DepthKm"]) - xyz(st["Lon"], st["Lat"], st["DepthKm"]))
-            if d < 5:
-                continue
-            ref = solver.tt.resample(np.array([[R_EARTH - r["DepthKm"], np.radians(90 - r["Lat"]), np.radians(r["Lon"])]]))[0]
-            rel_t.append(abs(r["Time"] - ref) / ref)
-        if phase != "P":
-            continue
-        for ray in [x for x in case["Rays"] if x["Station"] == st["Id"]]:
-            if np.linalg.norm(xyz(ray["Lon"], ray["Lat"], ray["Depth"]) - xyz(st["Lon"], st["Lat"], st["DepthKm"])) < 5:
-                continue
-            end = np.array([R_EARTH - ray["Depth"], np.radians(90 - ray["Lat"]), np.radians(ray["Lon"])])
-            pk = solver.tt.trace_ray(end)
-            pk_xyz = np.stack([pk[:, 0] * np.sin(pk[:, 1]) * np.cos(pk[:, 2]), pk[:, 0] * np.sin(pk[:, 1]) * np.sin(pk[:, 2]), pk[:, 0] * np.cos(pk[:, 1])], axis=1)
-            ts_xyz = xyz(np.array(ray["RayLon"]), np.array(ray["RayLat"]), np.array(ray["RayDepth"])).T
-            dense = np.concatenate([np.linspace(pk_xyz[i], pk_xyz[i + 1], 10, endpoint=False) for i in range(len(pk_xyz) - 1)] + [pk_xyz[-1:]])
-            deviation.append(np.array([np.min(np.linalg.norm(dense - p, axis=1)) for p in ts_xyz]).max() / ray["LengthKm"])
-            kernel.append(abs(ray["KernelTime"] - ray["FieldTime"]) / ray["FieldTime"])
-        del solver
+        # Each station and phase is saved as it is done, so that an interrupted run resumes.
+        part = os.path.join(folder, f"pykonal_{st['Id']}_{phase}.json")
+        if not os.path.exists(part):
+            solver = pykonal_solver(g, fine[phase], st, F)
+            here = [r for r in rows[(st["Id"], phase)]
+                    if np.linalg.norm(xyz(r["Lon"], r["Lat"], r["DepthKm"]) - xyz(st["Lon"], st["Lat"], st["DepthKm"])) >= 5]
+            pts = np.array([[R_EARTH - r["DepthKm"], np.radians(90 - r["Lat"]), np.radians(r["Lon"])] for r in here])
+            ref = solver.tt.resample(pts)
+            result = {"relative": [abs(r["Time"] - t) / t for r, t in zip(here, ref)], "deviation": [], "kernel": []}
+            for ray in [x for x in case["Rays"] if x["Station"] == st["Id"]] if phase == "P" else []:
+                if np.linalg.norm(xyz(ray["Lon"], ray["Lat"], ray["Depth"]) - xyz(st["Lon"], st["Lat"], st["DepthKm"])) < 5:
+                    continue
+                end = np.array([R_EARTH - ray["Depth"], np.radians(90 - ray["Lat"]), np.radians(ray["Lon"])])
+                pk = solver.tt.trace_ray(end)
+                pk_xyz = np.stack([pk[:, 0] * np.sin(pk[:, 1]) * np.cos(pk[:, 2]), pk[:, 0] * np.sin(pk[:, 1]) * np.sin(pk[:, 2]), pk[:, 0] * np.cos(pk[:, 1])], axis=1)
+                ts_xyz = xyz(np.array(ray["RayLon"]), np.array(ray["RayLat"]), np.array(ray["RayDepth"])).T
+                dense = np.concatenate([np.linspace(pk_xyz[i], pk_xyz[i + 1], 10, endpoint=False) for i in range(len(pk_xyz) - 1)] + [pk_xyz[-1:]])
+                result["deviation"].append(float(np.array([np.min(np.linalg.norm(dense - p, axis=1)) for p in ts_xyz]).max() / ray["LengthKm"]))
+                result["kernel"].append(abs(ray["KernelTime"] - ray["FieldTime"]) / ray["FieldTime"])
+            del solver
+            json.dump(result, open(part, "w"))
+            print(f"PyKonal {st['Id']} {phase}: {len(result['relative'])} times, {len(result['deviation'])} rays", flush=True)
+        result = json.load(open(part))
+        rel_t += result["relative"]
+        deviation += result["deviation"]
+        kernel += result["kernel"]
 rel_t, deviation, kernel = np.array(rel_t), np.array(deviation), np.array(kernel)
 details = {"stations": stations, "pairs": int(rel_t.size), "p99_relative_error": float(np.percentile(rel_t, 99)),
            "rms_relative_error": float(np.sqrt((rel_t ** 2).mean())), "grid": g}

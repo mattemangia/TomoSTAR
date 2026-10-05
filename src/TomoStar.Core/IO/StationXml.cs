@@ -53,14 +53,25 @@ public static class StationXml
                     var sens = Child(Child(ch, "Response"), "InstrumentSensitivity");
                     if (sens != null)
                     {
-                        var stages = Child(ch, "Response")!.Elements().Where(e => e.Name.LocalName == "Stage")
-                            .Select(st => Child(st, "PolesZeros")).Where(pz => pz != null).Select(pz => PolesZeros(pz!)).Where(pz => pz != null).ToList();
+                        var stageElements = Child(ch, "Response")!.Elements().Where(e => e.Name.LocalName == "Stage").ToList();
+                        var stages = stageElements.Where(st => Child(st, "PolesZeros") != null)
+                            .Select(st =>
+                            {
+                                var pz = PolesZeros(Child(st, "PolesZeros")!);
+                                if (pz != null) pz.GainFrequency = Num(Text(Child(st, "StageGain"), "Frequency")) ?? double.NaN;
+                                return pz;
+                            }).Where(pz => pz != null).ToList();
+                        var digital = stageElements.Select(DigitalStageOf).Where(d => d != null).Select(d => d!).ToList();
+                        // The product of the stage gains, when every stage declares one (as evalresp uses them).
+                        var gains = stageElements.Select(st => Num(Text(Child(st, "StageGain"), "Value"))).ToList();
                         response = new InstrumentResponse
                         {
                             InputUnits = Text(Child(sens, "InputUnits"), "Name") ?? "",
                             Sensitivity = Num(Text(sens, "Value")) ?? 1,
                             SensitivityFrequency = Num(Text(sens, "Frequency")) ?? 1,
-                            Stages = stages!
+                            StageGain = gains.Count > 0 && gains.All(g => g is > 0) ? gains.Aggregate(1.0, (a, g) => a * g!.Value) : double.NaN,
+                            Stages = stages!,
+                            DigitalStages = digital
                         };
                         if (response.Stages.Count == 0 && (response.Sensitivity == 1 || response.InputUnits.Length == 0)) response = null;
                     }
@@ -104,6 +115,30 @@ public static class StationXml
             Zeros = pz.Elements().Where(e => e.Name.LocalName == "Zero").Select(Pair).ToList(),
             Poles = pz.Elements().Where(e => e.Name.LocalName == "Pole").Select(Pair).ToList()
         };
+    }
+
+    /// <summary>A FIR or coefficients stage with its coefficients (symmetric halves expanded), or null.</summary>
+    private static DigitalStage? DigitalStageOf(XElement stage)
+    {
+        var dec = Child(stage, "Decimation");
+        var rate = Num(Text(dec, "InputSampleRate")) ?? 0;
+        var delay = Num(Text(dec, "Delay")) ?? 0;
+        var correction = Num(Text(dec, "Correction")) ?? 0;
+        if (Child(stage, "FIR") is { } fir)
+        {
+            var c = fir.Elements().Where(e => e.Name.LocalName == "NumeratorCoefficient").Select(e => Num(e.Value.Trim()) ?? 0).ToList();
+            var symmetry = (Text(fir, "Symmetry") ?? "NONE").ToUpperInvariant();
+            // EVEN: the coefficients are the first half of an even-length filter; ODD: of an odd-length one.
+            if (symmetry == "EVEN") c.AddRange(Enumerable.Reverse(c).ToList());
+            else if (symmetry == "ODD") c.AddRange(Enumerable.Reverse(c).Skip(1).ToList());
+            return c.Count > 1 ? new DigitalStage { InputSampleRate = rate, Coefficients = c.ToArray(), Delay = delay, Correction = correction } : null;
+        }
+        if (Child(stage, "Coefficients") is { } cf && !cf.Elements().Any(e => e.Name.LocalName == "Denominator"))
+        {
+            var c = cf.Elements().Where(e => e.Name.LocalName == "Numerator").Select(e => Num(e.Value.Trim()) ?? 0).ToArray();
+            return c.Length > 1 ? new DigitalStage { InputSampleRate = rate, Coefficients = c, Delay = delay, Correction = correction } : null;
+        }
+        return null;
     }
 
     private static XElement? Child(XElement? e, string name) => e?.Elements().FirstOrDefault(x => x.Name.LocalName == name);

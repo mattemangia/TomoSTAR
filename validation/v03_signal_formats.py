@@ -124,7 +124,7 @@ for r in ours["Responses"]:
         ref = resp.get_evalresp_response_for_frequencies(freqs, output="VEL" if "S**2" not in r["InputUnits"].upper() else "ACC")
     except Exception:
         continue
-    # The band where the digital FIR stages are flat: from 0.5 Hz (0.05 of the sampling rate for
+    # The band of interest: from 0.5 Hz (0.05 of the sampling rate for
     # long-period channels) to 0.4 of the sampling rate.
     band = (freqs >= min(0.5, 0.05 * sr)) & (freqs <= 0.4 * sr)
     if not band.any():
@@ -166,7 +166,7 @@ for m in mseeds:
         n_rr += 1
 record("signal", "instrument response removal to velocity", "ObsPy remove_response", "max relative L2 difference", worst_rr,
        details={"traces": n_rr, "pre_filter_hz": pre, "water_level_db": 60, "max_on_records_of_50_s_or_more": worst_long,
-                "note": "short records are gap fragments; the residual difference is the FFT length (TomoSTAR pads to a power of 2) and the digital FIR stages TomoSTAR does not model"})
+                "note": "the residual difference is the FFT length (TomoSTAR pads to a power of 2) and the taper of short records (gap fragments)"})
 
 # ---- Filters, tapers, STA/LTA, AIC on a real trace -------------------------------------------------
 tr = max((x for m in mseeds for x in obspy.read(m) if x.stats.channel.endswith("Z")), key=lambda x: x.stats.npts)
