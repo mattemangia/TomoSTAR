@@ -4,14 +4,14 @@
     "method": "Qp tomography forward operator and model (t* = sum L s q + station term), real rays and t*",
     "reference": "independent path integration of the written model along the stored rays",
     "metric": "95th percentile of relative t* difference",
-    "value": 0.014497277912499931,
+    "value": 0.01289371094914435,
     "threshold": 0.05,
     "pass": true,
     "details": {
-      "t_star": 2819,
-      "median_relative": 0.0023534016902985364,
-      "median_abs_s": 2.983185180626194e-05,
-      "p95_abs_s": 7.742694339405373e-05
+      "t_star": 2810,
+      "median_relative": 0.002257656786809583,
+      "median_abs_s": 2.8823182503211198e-05,
+      "p95_abs_s": 7.752732360646245e-05
     }
   }
 ]

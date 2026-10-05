@@ -530,7 +530,7 @@ cores of a 2.1 GHz Xeon without a GPU:
 | Vp and Vp/Vs tomography with hypocentres and station terms, 27 x 33 x 19 nodes | RMS 0.128 s to 0.103 s, variance reduction 34 % | 117 s |
 | The same on the adaptive grid | 5,595 cells, the same RMS | 123 s |
 | Checkerboard test, 12 x 12 x 6 km cells, 5 % | correlation 0.81 over the well-sampled nodes | |
-| t\* of the M >= 3.5 events, then Qp tomography | 2,819 P t\* from 283 events at 17 stations, reference Q 526, t\* RMS 12.4 ms to 9.7 ms | |
+| t\* of the M >= 3.5 events, then Qp tomography | 2,810 P t\* from 283 events at 17 stations, reference Q 527, t\* RMS 12.6 ms to 9.8 ms | |
 
 **Vp change from the minimum 1-D model**, at 2, 6 and 10 km below sea level (nodes crossed by less
 than 50 km of ray are blank; dots: relocated earthquakes; triangles: stations). The model can be compared
