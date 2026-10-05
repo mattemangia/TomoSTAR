@@ -1,0 +1,34 @@
+[
+  {
+    "case": "lsqr",
+    "method": "damped LSQR on the real tomography problem (central Italy 2016-2017)",
+    "reference": "SciPy lsqr",
+    "metric": "max ||x - x_ref|| / ||x_ref||",
+    "value": 2.4961589327306185e-09,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "damping 0": {
+        "rows": 252053,
+        "columns": 48256,
+        "nonzeros": 12936088,
+        "data_rows": 169937,
+        "relative_difference": 2.4961589327306185e-09
+      },
+      "damping 1": {
+        "rows": 252053,
+        "columns": 48256,
+        "nonzeros": 12936088,
+        "data_rows": 169937,
+        "relative_difference": 9.151661455084698e-10
+      },
+      "damping 10": {
+        "rows": 252053,
+        "columns": 48256,
+        "nonzeros": 12936088,
+        "data_rows": 169937,
+        "relative_difference": 1.6252808389658338e-10
+      }
+    }
+  }
+]
