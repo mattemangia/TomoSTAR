@@ -22,7 +22,8 @@ public sealed class QTomographySettings
     public double Q0 { get; set; } = 300;
 
     /// <summary>
-    /// Take the reference Q from the data: the uniform Q that best fits all t* (weighted least
+    /// Take the reference Q from the data: without station terms the median of the path averages
+    /// T / t* of the rays, with station terms the uniform Q that best fits all t* (weighted least
     /// squares). With station terms a uniform change of Q is nearly indistinguishable from the
     /// terms, so the damping, not the data, would otherwise set the background.
     /// </summary>
@@ -199,21 +200,49 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         var slow = s.Phase == Phase.S ? sS : sP;
         if (s.EstimateQ0 && rows.Count > 0)
         {
-            // t* = q · T* with T* = Σ L s the travel time: weighted least squares for a uniform q.
+            // t* = q · T with T = Σ L s the travel time along the ray.
+            var ratios = new List<double>(rows.Count);
             double num = 0, den = 0;
             foreach (var r in rows)
             {
                 var a = data.Arrivals[r.Arrival];
                 var tt = r.OutsideTime;
                 for (var k = 0; k < r.Nodes.Length; k++) tt += r.Length[k] * slow[r.Nodes[k]];
+                if (!(tt > 0) || !double.IsFinite(a.Time)) continue;
+                ratios.Add(a.Time / tt);
                 var w = 1 / (a.Sigma * a.Sigma);
                 num += w * a.Time * tt;
                 den += w * tt * tt;
             }
-            if (den > 0 && num > 0)
+            double estimate = 0;
+            string how;
+            if (s.StationTerms)
             {
-                q0 = Math.Clamp(num / den, 1 / s.QMax, 1 / s.QMin);
-                log?.Invoke($"Q tomography: reference Q from the data {1 / q0:0} (uniform model fitting all t*).");
+                // With station terms the attenuation under each site belongs to its term, and the path
+                // averages t*/T of short paths are mostly site attenuation: the reference is the uniform
+                // q that best fits all t* (weighted least squares), dominated by the longer paths.
+                if (den > 0 && num > 0) estimate = num / den;
+                how = "uniform model fitting all t*";
+            }
+            else
+            {
+                // Without station terms every ray gives its path-average q = t*/T, and the reference is
+                // their median. A weighted least-squares fit of one uniform q is dominated by the longest
+                // and most precise paths, which in a subduction zone run up the cold slab: on the Tonga-Lau
+                // t* of Wei and Wiens (2020) it gave Q 273 where the paths average 155, and the damping,
+                // relative to the reference, then held the poorly sampled volume at too weak an attenuation.
+                if (ratios.Count > 0)
+                {
+                    ratios.Sort();
+                    var m = ratios.Count / 2;
+                    estimate = ratios.Count % 2 == 1 ? ratios[m] : 0.5 * (ratios[m - 1] + ratios[m]);
+                }
+                how = "median of the path averages T / t*";
+            }
+            if (estimate > 0)
+            {
+                q0 = Math.Clamp(estimate, 1 / s.QMax, 1 / s.QMin);
+                log?.Invoke($"Q tomography: reference Q from the data {1 / q0:0} ({how}).");
             }
         }
         var qStart = Enumerable.Repeat(q0, n).ToArray();
