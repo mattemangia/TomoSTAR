@@ -50,6 +50,100 @@ Python 3.11 with NumPy 2.4.
 ## Notes on the comparisons
 
 <!-- notes begin -->
+### Defects found and fixed
+
+The comparisons found five defects in TomoSTAR, all fixed before the results above were produced:
+
+1. **Double difference.** A step was judged by the misfit of the absolute times alone and halved
+   when that misfit rose, although the step had been computed to lower the differential misfit; the
+   events moved two thirds as much as with HypoDD. The step is now judged by the objective of the
+   linear system (absolute and differential rows with their weights).
+2. **Picker window.** The search window grew with the time from the start of the trace instead of
+   the origin time, and the first STA/LTA trigger in it was taken, often the coda or the arrival of
+   another earthquake during the sequence (a third of the P picks of classes 1 to 3 more than a
+   second early). Of the arrivals at least half as strong as the strongest, the one nearest the
+   predicted time is now taken.
+3. **Stage gain frequency.** For channels whose stage gain is declared at another frequency than the
+   normalisation of the poles and zeros (IV.SAP2 and IV.ATPI in the INGV metadata), the response was
+   scaled to the sensitivity at a frequency where it did not hold (25 times too high for IV.SAP2).
+   The response is now built from the stage gains and normalisation factors as evalresp builds it.
+4. **Digital filters.** The decimation filters were assumed flat in their passband; the binomial
+   filters of the IV digitisers of 2008-2009 halve the amplitude at 20 Hz on a 100 Hz channel. FIR
+   and coefficient stages are now part of the response.
+5. **Uncorrected filter delay.** An asymmetric FIR stage without a time correction (IV.GIGS in 2016)
+   shifts the record by three samples; its phase is now kept (symmetric filters stay zero phase, as
+   in evalresp).
+
+Defects 3 to 5 change the t\* of the example by 0.1 ms (median) and 2 ms (95th percentile); the
+t\* and Qp results of the README were recomputed with the corrected responses.
+
+### Absolute location
+
+TomoSTAR and NonLinLoc locate the same 2991 events from the same 159,736 INGV picks with the same
+pick uncertainties (0.1, 0.3 and 0.6 s by the bulletin's quality classes), in the same 1-D gradient
+model, without station corrections, both by weighted least squares (NonLinLoc: oct-tree search with
+the GAU_ANALYTIC likelihood; TomoSTAR: grid search and Levenberg-Marquardt). NonLinLoc's travel
+times come from its finite-difference solver (Podvin and Lecomte, 1991) on a 0.1 km grid in a
+spherical projection; TomoSTAR's from fast marching on a 0.01 degree by 0.5 km grid. The median
+hypocentre difference is 150 m (32 m horizontally), with TomoSTAR 120 m shallower on average, which
+is within the 600 m of the published vertical uncertainty. The two programs report different RMS
+values for the same solutions because NonLinLoc's is weighted by the pick uncertainties and
+TomoSTAR's is not.
+
+Both programs differ from the published CAT1 hypocentres by about 1 km (median), by the same amount:
+CAT1 used station corrections and the picks of 24 temporary stations that are not public.
+
+### Double difference
+
+HypoDD and TomoSTAR relocate the same events from the same starting hypocentres with the catalogue
+differential times of the same picks, the same pair selection (ph2dt: 10 km, 10 neighbours, 8 to 50
+links) and the same three iteration sets (no cutoff; 6 MADs and 10 km; 5 MADs and 6 km). HypoDD uses
+1 km layers of the gradient model, as Michele et al. (2020) did; TomoSTAR uses the gradient model on
+its grid and keeps the absolute times at a token weight (0.01) where HypoDD fixes the cluster
+centroid. HypoDD moves the events by 0.88 km (median) and TomoSTAR by 0.84 km; the relocations
+differ by 373 m (median). Against the published CAT2, which adds 4.4 million cross-correlation
+delays, both programs differ by the same amount (6.8 and 6.6 % at the 95th percentile).
+
+### t\*
+
+AttenTIon's own functions (`inversion`, `bestfc`, `buildd`, `buildG`) are given the multitaper
+spectra TomoSTAR measures on the real waveforms (243 events with at least five records, 2,786
+records). At the same corner
+frequency the two inversions agree to rounding. With each program's own corner search the t\* differ
+by 6.7 % (median): AttenTIon minimises the residual norm divided by the sum of the data, which favours
+low corners (TomoSTAR's corners are 12 % higher); with AttenTIon's corner grid and the least-squares
+criterion the corners coincide and t\* agree to 0.4 %.
+
+### Picker
+
+The automatic picks are made without the analyst picks, around the times the example's relocated
+3-D model predicts (window of 1 s plus 3 % of the travel time). Against the analysts' most precise
+picks (0.1 s), 95 % of the P picks are within 4.1 % of the travel time (median error 30 ms); the S
+picks are within 5.6 %, just above the limit, on 130 picks. S picking is the weakest step of the
+pipeline and its picks enter the inversions with larger uncertainties (1.5 times those of P). Part
+of the disagreement is on the analysts' side: some analyst picks were made on accelerometers, where
+an emergent onset visible on the broadband sensor is below the noise (IV.NRCA, event 10740261: a
+weak onset 0.83 s before the analyst pick).
+
+### Forward problem, LSQR and Q
+
+The eikonal solver is compared with TauP in ak135 and with PyKonal in the real 3-D model of the
+example, from the eight stations with most picks to every relocated earthquake. LSQR is compared
+with SciPy on the matrix of the last iteration of the example's inversion with its real residuals.
+The Q tomography's forward operator is recomputed by an independent integration of the written Qp
+and Vp models along the stored rays. The inverted Vp model of the example is compared, for
+information, with the published model of Carannante et al. (2013), obtained from other data: the
+median difference is 2.8 % over the 42 nodes resolved by both, larger near the surface (6.4 %) than
+at 4 and 8 km (2.0 and 2.8 %).
+
+### Signal processing and formats
+
+On the example's data (StationXML of 209 stations with 1002 channel epochs, 93 miniSEED traces of
+which 90 have a response, QuakeML of 42 events with 5537 picks), the instrument response agrees with
+evalresp to 0.8 % and the response removal with ObsPy to 0.14 %
+(with the same demean, detrend and 5 % cosine taper), the readers agree exactly with ObsPy, and the
+filters, Slepian tapers, STA/LTA and AIC agree with SciPy and ObsPy to rounding (the recursive
+STA/LTA after its start-up of 8 LTA, the AIC with ObsPy's split one sample later).
 <!-- notes end -->
 
 ## Reproducing
