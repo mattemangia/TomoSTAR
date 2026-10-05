@@ -17,7 +17,7 @@
       ],
       "water_level_db": 60,
       "max_on_records_of_50_s_or_more": 0.0013951940744601603,
-      "note": "short records are gap fragments; the residual difference is the FFT length (TomoSTAR pads to a power of 2) and the digital FIR stages TomoSTAR does not model"
+      "note": "the residual difference is the FFT length (TomoSTAR pads to a power of 2) and the taper of short records (gap fragments)"
     }
   },
   {

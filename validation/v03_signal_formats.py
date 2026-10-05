@@ -133,7 +133,7 @@ for r in ours["Responses"]:
     rel = np.abs(a - np.abs(ref[band])) / np.abs(ref[band])
     worst_amp = max(worst_amp, rel.max())
     n_resp += 1
-record("formats", "instrument response amplitude (poles and zeros, sensitivity)", "ObsPy evalresp (all stages)", "max relative error in the pass band",
+record("formats", "instrument response amplitude (stage gains, poles and zeros, digital filters)", "ObsPy evalresp (all stages)", "max relative error in the pass band",
        worst_amp, details={"channels": n_resp, "frequencies_hz": [float(freqs[0]), float(freqs[-1])]})
 
 # ---- Response removal ---------------------------------------------------------------------------

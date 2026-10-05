@@ -45,6 +45,36 @@ Python 3.11 with NumPy 2.4.
 ## Results
 
 <!-- results begin -->
+| Case | TomoSTAR method | Reference | Metric | Value | Limit | Result |
+|---|---|---|---|---|---|---|
+| eikonal | fast marching, ak135 first arrivals (P and S) | TauP (ObsPy) | max relative error | 0.98 % | 5.00 % | pass |
+| eikonal | fast marching, real 3-D Vp and Vs model (central Italy 2016-2017), station to hypocentre, beyond 5 km | PyKonal (grid refined 4 times) | max relative error | 2.29 % | 5.00 % | pass |
+| rays | ray paths traced back along the travel-time gradient, real 3-D model | PyKonal | max deviation / ray length | 3.15 % | 5.00 % | pass |
+| rays | travel time integrated along the ray (row of G), real 3-D model | eikonal travel time | max relative error | 2.13 % | 5.00 % | pass |
+| lsqr | damped LSQR on the real tomography problem (central Italy 2016-2017) | SciPy lsqr | max \|\|x - x_ref\|\| / \|\|x_ref\|\| | 2.5e-09 | 5.00 % | pass |
+| qtomography | Qp tomography forward operator and model (t* = sum L s q + station term), real rays and t* | independent path integration of the written model along the stored rays | 95th percentile of relative t* difference | 1.29 % | 5.00 % | pass |
+| location | absolute location (grid search + Levenberg-Marquardt), INGV picks, Carannante et al. 2013 model | NonLinLoc (Lomax et al. 2000), same picks and model | 95th percentile of \|hypocentre difference\| / median hypocentral distance | 1.02 % | 5.00 % | pass |
+| location | absolute location, INGV picks, Carannante et al. 2013 model, no station corrections | published catalogue CAT1 of Chiaraluce et al. 2022 (NonLinLoc with station corrections) | 95th percentile of \|hypocentre difference\| / median hypocentral distance | 12.11 % |  | information |
+| double_difference | double-difference relocation, catalogue differential times of the INGV picks | HypoDD 2.1b (Waldhauser 2001), same picks, pairs, weights and model | 95th percentile of \|hypocentre difference\| / median hypocentral distance (cluster offsets removed) | 4.07 % | 5.00 % | pass |
+| double_difference | double-difference relocation, catalogue differential times of the INGV picks | published catalogue CAT2 (Michele et al. 2020; HypoDD with cross-correlation delays) | 95th percentile of \|hypocentre difference\| / median hypocentral distance (mean offset removed) | 6.76 % |  | information |
+| tstar | joint multitaper t* inversion of an event (Brune source, shared ln Omega0, alpha 0.27, t* >= 0) | AttenTIon inversion() (Stachnik et al. 2004; Wei and Wiens 2018), same spectra and corner frequency | max over events of \|\|t*_TomoSTAR - t*_AttenTIon\|\| / \|\|t*_AttenTIon\|\| | 1.3e-08 | 5.00 % | pass |
+| tstar | joint multitaper t* inversion with its own corner-frequency search | AttenTIon bestfc() + inversion(), same spectra, search records and corner range | median over events of \|\|t*_TomoSTAR - t*_AttenTIon\|\| / \|\|t*_AttenTIon\|\| | 6.69 % |  | information |
+| tstar | joint multitaper t* inversion with its corner-frequency search (least squares) | AttenTIon d, G and nnls on its corner grid with the least-squares criterion, same spectra, search records and range | median over events of \|\|t*_TomoSTAR - t*_AttenTIon\|\| / \|\|t*_AttenTIon\|\| | 0.41 % | 5.00 % | pass |
+| picker | automatic P picks (STA/LTA trigger, AIC onset) on real waveforms | INGV analyst picks of the same records, most precise class (0.1 s) | 95th percentile of \|t_auto - t_analyst\| / travel time | 4.11 % | 5.00 % | pass |
+| picker | automatic P picks (STA/LTA trigger, AIC onset) on real waveforms | INGV analyst picks of the same records, all classes (0.1 to 1 s) | 95th percentile of \|t_auto - t_analyst\| / travel time | 6.97 % |  | information |
+| picker | automatic S picks (STA/LTA trigger, AIC onset) on real waveforms | INGV analyst picks of the same records, most precise class (0.1 s) | 95th percentile of \|t_auto - t_analyst\| / travel time | 5.57 % | 5.00 % | FAIL |
+| picker | automatic S picks (STA/LTA trigger, AIC onset) on real waveforms | INGV analyst picks of the same records, all classes (0.1 to 1 s) | 95th percentile of \|t_auto - t_analyst\| / travel time | 8.38 % |  | information |
+| signal | instrument response removal to velocity | ObsPy remove_response | max relative L2 difference | 0.14 % | 5.00 % | pass |
+| signal | Butterworth band-pass 1-15 Hz, orders 2 and 4, causal and zero phase | SciPy butter + sosfilt | max relative L2 difference | 6.0e-08 | 5.00 % | pass |
+| signal | Slepian (DPSS) tapers | SciPy dpss | max L2 difference of the unit-norm tapers | 5.2e-13 | 5.00 % | pass |
+| signal | recursive STA/LTA | ObsPy recursive_sta_lta | max relative difference after 8 LTA | 9.5e-08 | 5.00 % | pass |
+| signal | AIC function of the onset picker (Maeda 1985) | ObsPy aic_simple (aligned by one sample) | max relative difference | 4.3e-16 | 5.00 % | pass |
+| formats | miniSEED reader (samples, start times) | ObsPy read | max relative sample difference | 0 | 5.00 % | pass |
+| formats | QuakeML reader (origins) | ObsPy read_events | max difference (degrees, s, and depth / 100 km) | 0 | 5.00 % | pass |
+| formats | QuakeML reader (associated P and S picks) | ObsPy read_events | max time difference (s) | 0 | 5.00 % | pass |
+| formats | StationXML reader (station coordinates) | ObsPy read_inventory | max difference (degrees, km) | 0 | 5.00 % | pass |
+| formats | instrument response amplitude (stage gains, poles and zeros, digital filters) | ObsPy evalresp (all stages) | max relative error in the pass band | 0.83 % | 5.00 % | pass |
+| published_model | Vp of the central Italy 2016-2017 example (TomoSTAR) | published 3-D Vp of Carannante et al. 2013 (SIMULPS14, other data) | median \|Vp - Vp_published\| / Vp_published | 2.80 % |  | information |
 <!-- results end -->
 
 ## Notes on the comparisons
