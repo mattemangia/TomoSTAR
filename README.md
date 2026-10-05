@@ -43,6 +43,7 @@ where they appear in QUIVER's 3-D viewer, sections and diagnostics.
 - [Scripts](#scripts)
 - [Methods](#methods)
 - [Performance: SIMD, threads and OpenCL](#performance-simd-threads-and-opencl)
+- [Optional MPI execution on HPC](#optional-mpi-execution-on-hpc)
 - [A real example: the 2016-2017 central Italy sequence](#a-real-example-the-2016-2017-central-italy-sequence)
 - [Tests and validation](#tests-and-validation)
 - [Using the library](#using-the-library)
@@ -317,6 +318,7 @@ Options every command accepts:
 | `--adaptive` | adaptive octree parameterisation (velocity and Q) |
 | `--straight` | straight rays instead of fast marching |
 | `--no-opencl`, `--threads N` | CPU only; number of threads (0 = all) |
+| `--mpi` | enable MPI forward workers; pass once on the top-level command, including before `run` |
 | `--quiet`, `--keep-work` | print nothing; keep the travel-time tables in `work/` |
 
 Exit codes: 0 success, 1 error, 2 command-line mistake, 130 interrupted (Ctrl+C stops at the next
@@ -505,6 +507,88 @@ parameterisations as the velocity inversion.
 
 On a four-core laptop CPU without a GPU, the whole synthetic example (25 stations, 150 events,
 7500 picks, every step from picking to Q resolution tests) runs in about 45 s.
+
+## Optional MPI execution on HPC
+
+Normal execution on Linux, Windows and macOS is unchanged: **MPI is optional**, and neither MPI
+nor its native wrapper is loaded or required unless `--mpi` is passed. The standard build and
+self-contained publish commands above continue to work without an MPI installation. MPI execution
+is initially targeted and tested on Linux; normal macOS/Windows execution does not use this path.
+
+With `--mpi`, rank zero runs the command or script, assembles the inversion, solves LSQR and writes
+all final outputs. The other ranks wait for forward requests. Travel-time tables and ray tracing
+are partitioned by station, with CPU threads and optional OpenCL within each rank. Standalone
+travel-time table generation, including picking and absolute relocation, also distributes its
+tables. Picking, event location, spectral estimation and other command processing remain on rank
+zero. **LSQR and the sensitivity matrix are not distributed**: rank-zero RAM still limits the
+inversion size. This is a first MPI implementation for accelerating the forward calculation.
+
+Build the small native wrapper against the same MPI implementation used by the cluster launcher:
+
+```bash
+dotnet build -c Release
+bash native/mpi/build.sh "$PWD/mpi-native"
+export LD_LIBRARY_PATH="$PWD/mpi-native${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+mpirun -np 4 src/TomoStar.Cli/bin/Release/net10.0/tomostar --mpi invert mydata \
+  --grid runs/grid/grid.json --out runs/mpi-vel --threads 8 --no-opencl
+
+# Only rank zero interprets the script, including file checks and output registration.
+mpirun -np 4 src/TomoStar.Cli/bin/Release/net10.0/tomostar --mpi run study.tomo
+```
+
+`mpicc` and `mpirun` are needed for this optional path. The wrapper is a separate
+`libtomostar_mpi.so`, also needed alongside an MPI-enabled self-contained deployment; it is not
+included automatically by `dotnet publish`. Recompile it when switching MPI implementations.
+Pass `--mpi` on the top-level invocation, rather than in individual script lines. Launching
+multiple ranks without `--mpi` is rejected when standard OpenMPI/PMI launcher variables identify
+the parallel run, to prevent accidental concurrent writes.
+
+All ranks need access to the **same writable run/work directory at the same absolute path**.
+Per-rank ray workers use `work/mpi-rank-N`; standalone table workers write disjoint station files
+under the shared table directory. Scratch is removed by rank zero after workers finish unless
+`--keep-work` is used. Errors reported by a worker are collected before rank zero fails the
+command. Cancellation is checked before and after each distributed forward request; a running
+request finishes before a graceful cancellation takes effect. For immediate termination use the
+cluster scheduler's job cancellation.
+
+For Slurm, an illustrative CPU allocation is:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=tomostar
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=01:00:00
+
+export LD_LIBRARY_PATH="$PWD/mpi-native${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+srun src/TomoStar.Cli/bin/Release/net10.0/tomostar --mpi invert mydata \
+  --grid runs/grid/grid.json --out runs/mpi-vel \
+  --threads "$SLURM_CPUS_PER_TASK" --no-opencl
+```
+
+Adjust partition, memory, binding and MPI launcher settings to the cluster. CPU affinity should
+limit each rank to its assigned CPUs, including numerical loops that use default .NET parallelism.
+Singularity deployments need a compatible host/container MPI stack and the shared working paths
+bound into the container. On ReMEST, confirm multi-node allocation and MPI availability with the
+administrators: its public manual documents Singularity and Slurm, but does not establish those
+capabilities. This example has not been tested on ReMEST.
+
+Start with `--no-opencl`. For GPU runs, each rank must see only its allocated device; requesting
+multiple GPUs does not automatically bind ranks to different devices. Worker GPU computation is
+enabled when rank zero has a working eikonal OpenCL solver, and each worker performs its own
+device self-test and falls back to CPU if needed. Station partitioning, shared-storage bandwidth,
+JSON communication and the serial inversion can limit scaling; benchmark representative data
+before allocating many nodes. Models and geometry are replicated on each rank, and ray rows are
+collected on rank zero. No speedup is assumed.
+
+The optional integration check builds the wrapper in temporary storage and compares CPU
+inversions and relocations with 1, 2 and 4 MPI ranks against serial execution:
+
+```bash
+python3 tools/verify_mpi.py
+```
 
 ## A real example: the 2016-2017 central Italy sequence
 

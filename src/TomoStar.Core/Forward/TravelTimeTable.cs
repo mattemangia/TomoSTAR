@@ -282,7 +282,21 @@ public sealed class TravelTimeTableSet : IDisposable
         }
         var total = Math.Max(1, jobs.Count);
         log?.Invoke($"Travel-time tables: {jobs.Count} to compute, {sources.Count * phases.Count - jobs.Count} reused.");
-        if (jobs.Count > 0) Compute(model, jobs, gpu, total, progress, log, ct);
+        if (jobs.Count > 0)
+        {
+            if (MpiSession.Current is { CanDispatch: true } mpi)
+            {
+                ct.ThrowIfCancellationRequested();
+                log?.Invoke($"MPI travel-time tables: {mpi.Size} ranks.");
+                mpi.Dispatch(new MpiSession.Request
+                {
+                    Kind = "tables", Grid = model.Grid.Definition, P = model.SlownessP, S = model.SlownessS,
+                    Sources = sources.ToList(), Phases = phases.ToList(), Folder = Path.GetFullPath(folder), UseGpu = gpu != null
+                });
+                ct.ThrowIfCancellationRequested();
+            }
+            else Compute(model, jobs, gpu, total, progress, log, ct);
+        }
 
         foreach (var phase in phases)
         foreach (var s in sources)

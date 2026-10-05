@@ -30,6 +30,19 @@ public sealed class RayKernels(SphericalGrid grid, ForwardDomain domain, RayMeth
     public List<RayRow> Compute(ObservationSet data, double[] sP, double[] sS, EikonalOpenCl? gpu, int keepRayPoints,
         IProgress<(double, string)>? progress = null, double progressBase = 0, CancellationToken ct = default, double progressSpan = 0)
     {
+        if (TomoStar.Core.Compute.MpiSession.Current is { CanDispatch: true } mpi)
+        {
+            ct.ThrowIfCancellationRequested();
+            log?.Invoke($"MPI forward: {mpi.Size} ranks, partitioned by station; LSQR remains on rank zero.");
+            var distributed = mpi.Dispatch(new TomoStar.Core.Compute.MpiSession.Request
+            {
+                Kind = "rays", Grid = grid.Definition, Domain = domain, Data = data,
+                P = sP, S = sS, Folder = Path.GetFullPath(workFolder), Method = method,
+                KeepPoints = keepRayPoints, UseGpu = gpu != null
+            });
+            ct.ThrowIfCancellationRequested();
+            return distributed;
+        }
         // The pass fills [progressBase, progressBase + progressSpan]: the tables the first half, the rays the second.
         var tableSpan = method == RayMethod.FastMarching ? 0.5 * progressSpan : 0;
         var rows = new ConcurrentBag<RayRow>();

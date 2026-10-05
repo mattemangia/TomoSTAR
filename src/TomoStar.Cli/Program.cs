@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using TomoStar.Core.IO;
+using TomoStar.Core.Compute;
 
 namespace TomoStar.Cli;
 
@@ -67,9 +68,37 @@ public static class Program
           --register PROJECT    copy the results into a QUIVER project ('data' = the project given as --data)
           --adaptive            adaptive (octree) parameterisation; --straight: straight rays
           --no-opencl --threads N --quiet --keep-work
+          --mpi                 MPI forward workers (top-level option; LSQR runs on rank zero)
         """;
 
     public static int Main(string[] args)
+    {
+        try
+        {
+            var useMpi = args.Contains("--mpi", StringComparer.Ordinal);
+            if (!useMpi && LaunchedWithMultipleRanks())
+            {
+                Console.Error.WriteLine("Multiple MPI ranks require --mpi; refusing concurrent writes to the same run.");
+                return 2;
+            }
+            using var mpi = useMpi ? new MpiSession() : null;
+            if (mpi is { Rank: > 0 }) { mpi.WorkerLoop(); return 0; }
+            return RunMain(args.Where(a => a != "--mpi").ToArray());
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static bool LaunchedWithMultipleRanks() =>
+        new[] { "OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "PMIX_SIZE" }
+            .Any(name => int.TryParse(Environment.GetEnvironmentVariable(name), out var size) && size > 1)
+        || (Environment.GetEnvironmentVariable("SLURM_PROCID") != null
+            && int.TryParse(Environment.GetEnvironmentVariable("SLURM_NTASKS"), out var tasks) && tasks > 1);
+
+    private static int RunMain(string[] args)
     {
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>

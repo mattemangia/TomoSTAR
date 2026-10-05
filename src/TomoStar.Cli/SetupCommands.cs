@@ -177,6 +177,8 @@ public static class SetupCommands
     {
         Console.WriteLine($"TomoSTAR {typeof(SetupCommands).Assembly.GetName().Version?.ToString(3)} on .NET {Environment.Version}, {Environment.OSVersion}");
         Console.WriteLine($"CPU: {Environment.ProcessorCount} logical processors; threads used: {ComputeSettings.Threads}");
+        if (MpiSession.Current is { } mpi)
+            Console.WriteLine($"MPI: {mpi.Size} ranks; forward distributed by station; LSQR and output on rank zero.");
         Console.WriteLine($"SIMD: Vector<double> holds {SimdVector.Width} values, hardware accelerated: {Vector.IsHardwareAccelerated}");
         var devices = OpenClContext.Enumerate(out var error);
         if (error != null) Console.WriteLine($"OpenCL: {error}");
