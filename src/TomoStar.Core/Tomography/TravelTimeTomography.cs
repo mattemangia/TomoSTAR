@@ -375,6 +375,7 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
         MatrixLayout? lastLayout = null;
         State? snapshot = null;
         double previousWrms = double.NaN;
+        DoubleDifferenceIterationSet? lastSet = null;
         double[]? lastStep = null;
         MatrixLayout? lastLayoutApplied = null;
         var halvings = 0;
@@ -415,13 +416,21 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
 
                 rows = Forward(data, sP, sS, gpu, keepRays: final, progress, frac0, ct, (final ? 1.0 : 0.5) / (iterations + 1));
                 var st = Residuals(data, rows, it, ref initialVariance);
-                if (snapshot != null && st.WeightedRms > previousWrms * 1.001 && halvings < s.MaxStepHalvings)
+                // The step is judged by the misfit the linear system minimised: the weighted absolute
+                // times alone, or, in a double-difference inversion, the absolute times at the set's
+                // weight together with the differential times (whose decrease is the point of the step).
+                var misfit = st.WeightedRms;
+                if (dd != null && snapshot != null && lastSet != null)
+                    misfit = Objective(data, DifferentialResiduals(data, rows, dd, lastSet, new IterationStats()), lastSet.AbsoluteWeight);
+                if (snapshot != null && misfit > previousWrms * 1.001 && halvings < s.MaxStepHalvings)
                 {
                     // The last step made things worse: go back and take half of it.
                     halvings++;
                     snapshot.Restore(data, sP, sS);
                     var shorter = lastStep!.Select(v => v * Math.Pow(0.5, halvings)).ToArray();
-                    log?.Invoke($"  Weighted RMS {st.WeightedRms:0.000} s is worse than {previousWrms:0.000} s: the step is halved ({halvings}/{s.MaxStepHalvings}).");
+                    log?.Invoke(dd != null
+                        ? $"  Misfit {misfit:0.000} s is worse than {previousWrms:0.000} s: the step is halved ({halvings}/{s.MaxStepHalvings})."
+                        : $"  Weighted RMS {st.WeightedRms:0.000} s is worse than {previousWrms:0.000} s: the step is halved ({halvings}/{s.MaxStepHalvings}).");
                     var baseScale = stats[^1].StepScale / (halvings > 1 ? Math.Pow(0.5, halvings - 1) : 1);
                     ApplyUpdate(data, shorter, lastLayoutApplied!, sP, sS, sRefP, sRefS, kRef, stats[^1]);
                     stats[^1].StepScale = baseScale * Math.Pow(0.5, halvings);
@@ -452,7 +461,8 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
                 st.MatrixNonZeros = g.NonZeroCount;
                 st.UpdateNorm = SimdVector.Norm(sol.Solution.AsSpan(0, layout.HypoOffset >= 0 ? layout.HypoOffset : g.ColumnCount));
                 snapshot = State.Take(data, sP, sS);
-                previousWrms = st.WeightedRms;
+                previousWrms = set != null ? Objective(data, ddRows, set.AbsoluteWeight) : st.WeightedRms;
+                lastSet = set;
                 (lastStep, st.StepScale) = Capped(sol.Solution, layout);
                 lastLayoutApplied = layout;
                 ApplyUpdate(data, lastStep, layout, sP, sS, sRefP, sRefS, kRef, st);
@@ -681,6 +691,32 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
 
     /// <summary>A differential time in use: its rays, residual and weight.</summary>
     private sealed record DifferentialRow(DifferentialTime Time, RayRow RowA, RayRow RowB, double Residual, double Weight);
+
+    /// <summary>
+    /// Root-mean-square misfit of a double-difference system, s: the used absolute times weighted by
+    /// 1/σ² and by the square of the set's absolute weight, and the differential times by the square
+    /// of their row weight, normalised by the summed weights (so it reads as a weighted RMS).
+    /// </summary>
+    private static double Objective(ObservationSet data, List<DifferentialRow>? differential, double absoluteWeight)
+    {
+        double sum = 0, weight = 0;
+        var a2 = absoluteWeight * absoluteWeight;
+        foreach (var a in data.Arrivals)
+        {
+            if (a.Rejected || double.IsNaN(a.Residual)) continue;
+            var w = a2 / (a.Sigma * a.Sigma);
+            sum += w * a.Residual * a.Residual;
+            weight += w;
+        }
+        if (differential != null)
+            foreach (var d in differential)
+            {
+                var w = d.Weight * d.Weight;
+                sum += w * d.Residual * d.Residual;
+                weight += w;
+            }
+        return weight > 0 ? Math.Sqrt(sum / weight) : 0;
+    }
 
     /// <summary>
     /// Residuals and weights of the differential times for one iteration: (tA − tB)obs − (tA − tB)calc,

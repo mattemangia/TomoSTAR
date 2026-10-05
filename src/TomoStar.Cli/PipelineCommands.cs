@@ -74,7 +74,7 @@ public static class PipelineCommands
                     var tt = t.Time(ev.Lon, ev.Lat, ev.DepthKm);
                     return double.IsFinite(tt) ? ev.OriginTime.AddSeconds(tt) : null;
                 }
-                foreach (var r in AutoPicker.PickStation(list, Predicted(Phase.P), s.PickS ? Predicted(Phase.S) : null, s))
+                foreach (var r in AutoPicker.PickStation(list, Predicted(Phase.P), s.PickS ? Predicted(Phase.S) : null, s, ev.OriginTime))
                 {
                     var trace = list.FirstOrDefault(t => t.Channel == r.Channel) ?? list[0];
                     automatic.Add((ev.Id, AutoPicker.ToPick(r, trace)));

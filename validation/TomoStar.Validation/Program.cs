@@ -18,10 +18,13 @@
 //     tomostar-validation quakeml FILE_OR_FOLDER OUT.json
 //     tomostar-validation stationxml FILE FREQUENCIES(comma) OUT.json
 //     tomostar-validation remove-response MSEED STATIONXML F1 F2 F3 F4 WATERLEVEL OUT_FOLDER
+//     tomostar-validation tt-real VP.qvol VS.qvol STATIONS.csv EVENTS.csv STATION_IDS(comma) REFINEMENT OUT_FOLDER
+//     tomostar-validation tstar-spectra STATIONS.csv EVENTS.csv PICKS.csv STATIONXML WAVEFORMS ALPHA OUT.json
 
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using TomoStar.Core.Attenuation;
 using TomoStar.Core.Forward;
 using TomoStar.Core.Geo;
 using TomoStar.Core.IO;
@@ -66,6 +69,8 @@ switch (args.Length > 0 ? args[0] : "")
     case "quakeml": QuakeMlCase(args[1], args[2]); break;
     case "stationxml": StationXmlCase(args[1], args[2], args[3]); break;
     case "remove-response": RemoveResponse(args[1], args[2], D(args[3]), D(args[4]), D(args[5]), D(args[6]), D(args[7]), args[8]); break;
+    case "tt-real": TravelTimesReal(args[1], args[2], args[3], args[4], args[5].Split(','), int.Parse(args[6]), args[7]); break;
+    case "tstar-spectra": TStarSpectra(args[1], args[2], args[3], args[4], args[5], D(args[6]), args[7]); break;
     default:
         Console.Error.WriteLine("Usage: see the header of Program.cs.");
         return 2;
@@ -272,6 +277,93 @@ void RemoveResponse(string mseed, string stationXml, double f1, double f2, doubl
         list.Add(new { Nslc = t.Nslc, Start = t.StartTime.ToString("o"), t.SampleRate, File = name });
     }
     File.WriteAllText(Path.Combine(folder, "traces.json"), JsonSerializer.Serialize(list, json));
+}
+
+// First-arrival times in a real 3-D model (the Vp and Vs volumes of an inversion, on its forward
+// grid: the inversion grid refined REFINEMENT times, velocities interpolated trilinearly) from the
+// given stations to every event inside the grid, P and S, by the eikonal solver of the inversion.
+// The model is written as used (vp.f64, vs.f64, grid.json) for the reference solver.
+void TravelTimesReal(string vpPath, string vsPath, string stationsCsv, string eventsCsv, string[] stationIds, int refinement, string folder)
+{
+    Directory.CreateDirectory(folder);
+    GridDefinition def;
+    using (var r = new VolumeReader(vpPath)) def = r.Header.Grid.Refined(refinement);
+    var g = new SphericalGrid(def);
+    var vp = CatalogueReader.ReadVolumeOnGrid(vpPath, def);
+    var vs = CatalogueReader.ReadVolumeOnGrid(vsPath, def);
+    WriteF64(Path.Combine(folder, "vp.f64"), vp);
+    WriteF64(Path.Combine(folder, "vs.f64"), vs);
+    File.WriteAllText(Path.Combine(folder, "grid.json"), JsonSerializer.Serialize(def, json));
+    var cat = CatalogueReader.ReadCsv(stationsCsv, eventsCsv, null);
+    var stations = cat.StationIndex();
+    var inside = cat.Events.Where(e => g.Contains(e.Lon, e.Lat, e.DepthKm)).ToList();
+    var metric = new GridMetric(g);
+    var rows = new System.Collections.Concurrent.ConcurrentBag<object>();
+    var rays = new System.Collections.Concurrent.ConcurrentBag<object>();
+    Parallel.ForEach(stationIds.SelectMany(id => new[] { (Id: id, Phase: Phase.P), (Id: id, Phase: Phase.S) }), job =>
+    {
+        var st = stations[job.Id];
+        var slow = (job.Phase == Phase.P ? vp : vs).Select(v => 1 / v).ToArray();
+        var t = SphericalEikonal.Solve(metric, slow, SphericalEikonal.PointSource(g, slow, st.Lon, st.Lat, st.DepthKm));
+        foreach (var e in inside)
+            rows.Add(new { Station = job.Id, Phase = job.Phase.ToString(), Event = e.Id, e.Lon, e.Lat, e.DepthKm, Time = g.Interpolate(t, e.Lon, e.Lat, e.DepthKm) });
+        if (job.Phase != Phase.P) return;
+        // Rays of every 20th event, back along the gradient of the field, and their time as the
+        // tomography computes it (the path integral of the trilinear slowness basis).
+        var tablePath = Path.Combine(folder, $"{job.Id}.P.qttb");
+        TravelTimeTable.Write(tablePath, new TravelTimeTableHeader { StationId = job.Id, Phase = Phase.P, Lon = st.Lon, Lat = st.Lat, DepthKm = st.DepthKm, Grid = def }, t);
+        using var table = TravelTimeTable.Open(tablePath);
+        for (var k = 0; k < inside.Count; k += 20)
+        {
+            var e = inside[k];
+            var ray = RayTracing.Backtrack(table, e.Lon, e.Lat, e.DepthKm, 0.25 * g.MinSpacingKm());
+            if (ray == null) continue;
+            var kernel = RayTracing.Kernel(g, ray);
+            rays.Add(new
+            {
+                Station = job.Id, Event = e.Id, e.Lon, e.Lat, Depth = e.DepthKm, FieldTime = table.Time(e.Lon, e.Lat, e.DepthKm),
+                KernelTime = RayTracing.Time(kernel, slow), LengthKm = ray.LengthKm(), RayLon = ray.Lon, RayLat = ray.Lat, RayDepth = ray.Depth
+            });
+        }
+    });
+    File.WriteAllText(Path.Combine(folder, "times.json"), JsonSerializer.Serialize(new { Grid = def, Stations = stationIds.Select(id => new { Id = id, stations[id].Lon, stations[id].Lat, stations[id].DepthKm }), Rows = rows.ToList(), Rays = rays.ToList() }, json));
+}
+
+// ---- t* -----------------------------------------------------------------------------------------------
+
+// Multitaper t* of every event with waveforms, inverted jointly per event (the method of Stachnik et
+// al. 2004 and Wei and Wiens 2018) with a fixed alpha and non-negative t*, as AttenTIon does. For each
+// event: the corner frequency found, and for each record the binned displacement spectrum, the bins
+// fitted, the hypocentral distance and the t* and ln(Omega0) of TomoSTAR. The Python side gives the
+// same spectra to AttenTIon's own inversion.
+void TStarSpectra(string stationsCsv, string eventsCsv, string picksCsv, string stationXml, string waveforms, double alpha, string output)
+{
+    var cat = CatalogueReader.ReadCsv(stationsCsv, eventsCsv, picksCsv);
+    var inventory = StationXml.ReadFile(stationXml);
+    InstrumentResponse? ResponseOf(Trace t) => StationXml.ResponseAt(inventory.Responses, t.Nslc, t.StartTime);
+    var stations = cat.StationIndex();
+    var archive = WaveformArchive.FromFolder(waveforms);
+    var s = new TStarSettings { Method = TStarMethod.MultitaperJoint, Alpha = alpha, SearchAlpha = false, NonNegative = true, SharedSourceLevel = true, ContiguousBand = true };
+    var results = new System.Collections.Concurrent.ConcurrentBag<object>();
+    Parallel.ForEach(cat.Events, ev =>
+    {
+        var traces = archive.ForEvent(ev);
+        if (traces.Count == 0) return;
+        var (_, fits, message) = TStarEstimator.MeasureEvent(ev, traces, s, ResponseOf, id => stations.GetValueOrDefault(id));
+        if (fits.Count == 0) return;
+        var source = GeoMath.ToCartesian(ev.Lon, ev.Lat, ev.DepthKm);
+        results.Add(new
+        {
+            ev.Id, ev.Magnitude, ev.Lat, ev.Lon, ev.DepthKm, CornerHz = fits[0].CornerHz, Alpha = fits[0].Alpha, Message = message,
+            Records = fits.Select(f =>
+            {
+                var st = stations[f.StationId];
+                var r = Math.Max(1, (source - GeoMath.ToCartesian(st.Lon, st.Lat, -st.ElevationM / 1000)).Length);
+                return new { Station = f.StationId, DistanceKm = r, Freq = f.Freq, Amplitude = f.Signal, f.Used, f.Snr, f.TStar, f.LogOmega0 };
+            }).ToList()
+        });
+    });
+    File.WriteAllText(output, JsonSerializer.Serialize(new { Settings = s, Events = results.ToList() }, json));
 }
 
 // ---- Raw arrays --------------------------------------------------------------------------------
