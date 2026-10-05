@@ -1,0 +1,56 @@
+[
+  {
+    "case": "location",
+    "method": "absolute location (grid search + Levenberg-Marquardt), INGV picks, Carannante et al. 2013 model",
+    "reference": "NonLinLoc (Lomax et al. 2000), same picks and model",
+    "metric": "95th percentile of |hypocentre difference| / median hypocentral distance",
+    "value": 0.010205008787274317,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "events": 2991,
+      "median_km": 0.14872565171589625,
+      "p95_km": 0.29578728623593287,
+      "median_horizontal_km": 0.03232976612531563,
+      "median_abs_depth_km": 0.13972300000000004,
+      "mean_depth_difference_km": -0.12395459311267136,
+      "median_relative": 0.005135286172195287,
+      "p95_relative": 0.010205008787274317,
+      "rms_tomostar_median_s": 0.2955,
+      "rms_nonlinloc_median_s": 0.222721,
+      "located_tomostar": 2991,
+      "located_nonlinloc": 2991,
+      "input_events": 2991
+    }
+  },
+  {
+    "case": "location",
+    "method": "absolute location, INGV picks, Carannante et al. 2013 model, no station corrections",
+    "reference": "published catalogue CAT1 of Chiaraluce et al. 2022 (NonLinLoc with station corrections)",
+    "metric": "95th percentile of |hypocentre difference| / median hypocentral distance",
+    "value": 0.12112898669124891,
+    "threshold": null,
+    "pass": null,
+    "details": {
+      "events": 2991,
+      "median_km": 1.0395538786342127,
+      "p95_km": 3.5940700769241163,
+      "median_horizontal_km": 0.5982852649117918,
+      "median_abs_depth_km": 0.7058,
+      "mean_depth_difference_km": -0.4780058174523571,
+      "median_relative": 0.035998500473643155,
+      "p95_relative": 0.12112898669124891,
+      "nonlinloc_same_input_vs_cat1": {
+        "median_km": 1.0264534575729396,
+        "p95_km": 3.6038687692997704,
+        "median_horizontal_km": 0.6018504673693217,
+        "median_abs_depth_km": 0.6813959999999994,
+        "mean_depth_difference_km": -0.3540512243396857,
+        "median_relative": 0.03522591060735725,
+        "p95_relative": 0.11950580517357866
+      },
+      "published_median_errh_km": 0.046,
+      "published_median_errv_km": 0.78
+    }
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "case": "published_model",
+    "method": "Vp of the central Italy 2016-2017 example (TomoSTAR)",
+    "reference": "published 3-D Vp of Carannante et al. 2013 (SIMULPS14, other data)",
+    "metric": "median |Vp - Vp_published| / Vp_published",
+    "value": 0.028037432085998695,
+    "threshold": null,
+    "pass": null,
+    "details": {
+      "nodes": 42,
+      "rms": 0.059872165199213234,
+      "p95_abs": 0.1365117434841906,
+      "mean": -0.010034347199311752,
+      "by_depth": {
+        "0 km": {
+          "nodes": 14,
+          "median_abs": 0.0635573414296631
+        },
+        "4 km": {
+          "nodes": 17,
+          "median_abs": 0.01983605579454345
+        },
+        "8 km": {
+          "nodes": 11,
+          "median_abs": 0.027871573579201593
+        },
+        "12 km": {
+          "nodes": 0,
+          "median_abs": null
+        }
+      }
+    }
+  }
+]
