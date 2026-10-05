@@ -28,15 +28,21 @@ public sealed class QTomographySettings
     /// </summary>
     public bool EstimateQ0 { get; set; } = true;
 
-    public double Damping { get; set; } = 1;
-    public double Smoothing { get; set; } = 5;
+    /// <summary>
+    /// Damping and smoothing of the fractional change of 1/Q, relative to the typical weighted
+    /// sensitivity of a t* to a node (1: a unit of regularisation costs as much as one datum), so the
+    /// same values mean the same whatever the background Q, the t* uncertainties and the grid.
+    /// </summary>
+    public double Damping { get; set; } = 2;
+    public double Smoothing { get; set; } = 10;
     public double VerticalSmoothingWeight { get; set; } = 0.1;
 
     /// <summary>Second differences in km (default) or between neighbouring nodes.</summary>
     public SmoothingScale SmoothingScale { get; set; } = SmoothingScale.Kilometres;
 
     public bool StationTerms { get; set; } = true;
-    public double DampingStation { get; set; } = 5;
+    /// <summary>Damping of the station terms, relative to their sensitivity (1 / σ) as <see cref="Damping"/> is to the nodes'.</summary>
+    public double DampingStation { get; set; } = 3;
     public int LsqrIterations { get; set; } = 400;
     public double QMin { get; set; } = 10;
     public double QMax { get; set; } = 5000;
@@ -93,8 +99,9 @@ public sealed class QTomographyResult
 /// nodes, Lₙ the ray's trilinear kernel and sₙ the slowness of the velocity model the rays were
 /// traced in, a linear problem in q once the velocity model is fixed (e.g. Rietbrock 2001, J. Geophys.
 /// Res. 106(B3), 4141-4154; Eberhart-Phillips &amp; Chadwick 2002). Unknowns are fractional changes of q
-/// relative to 1/Q₀, so damping and smoothing are dimensionless as in the velocity tomography;
-/// optional station terms absorb near-surface attenuation under each site.
+/// relative to 1/Q₀; damping and smoothing are scaled by the typical sensitivity of the data to them
+/// (see <see cref="QTomographySettings.Damping"/>), and optional station terms, damped the same way,
+/// absorb near-surface attenuation under each site.
 /// </summary>
 public sealed class QTomography(SphericalGrid grid, QTomographySettings settings, string workFolder, Action<string>? log = null)
 {
@@ -146,6 +153,9 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
                                        (outside == OutsideData.Exclude ? "." : " (path not crossing the grid)."));
         return set;
     }
+
+    /// <summary>Sensitivity scales of the last solve (1/Q block, station terms) the regularisation was multiplied by.</summary>
+    private (double Model, double Station) _scales = (1, 1);
 
     /// <summary>1-D velocities outside the grid when outside data are used; null: layer mean of the model.</summary>
     public VelocityModel1D? Background { get; init; }
@@ -261,6 +271,8 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         var b = new CsrBuilder(n + (s.StationTerms ? data.Stations.Count : 0));
         var cols = new List<int>();
         var vals = new List<double>();
+        double sumModel = 0, sumStation = 0;
+        long countModel = 0, countStation = 0;
         foreach (var r in pr.Rows)
         {
             var a = data.Arrivals[r.Arrival];
@@ -277,28 +289,42 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
             }
             else { cols.Clear(); vals.Clear(); cols.AddRange(r.Nodes); vals.AddRange(nodeVals); }
             if (offSt >= 0) { cols.Add(offSt + a.Station); vals.Add(1); }
+            for (var k = 0; k < cols.Count; k++)
+            {
+                var w = vals[k] / a.Sigma;
+                if (cols[k] < n) { sumModel += w * w; countModel++; }
+                else { sumStation += w * w; countStation++; }
+            }
             b.AddRow(cols.ToArray(), vals.ToArray(), pr.StartResidual[r.Arrival], 1 / a.Sigma);
         }
+        // Damping and smoothing are relative to the typical weighted sensitivity of a data row to a
+        // parameter of their block: a node's entry is (time in the node) × q₀ / σ, a station term's 1 / σ,
+        // so absolute weights would regularise a high-Q₀ or noisy data set far more than a low-Q₀ one,
+        // and would leave the station terms almost free next to the nodes (they would take up all the
+        // shallow attenuation). Scaled, a unit of regularisation costs as much as one row of data.
+        var scaleModel = countModel > 0 ? Math.Sqrt(sumModel / countModel) : 1;
+        var scaleStation = countStation > 0 ? Math.Sqrt(sumStation / countStation) : 1;
+        _scales = (scaleModel, scaleStation);
         if (lattice != null)
         {
-            lattice.AddDamping(b, 0, damping);
-            lattice.AddLaplacian(b, 0, smoothing, s.VerticalSmoothingWeight, s.SmoothingScale, null);
+            lattice.AddDamping(b, 0, damping * scaleModel);
+            lattice.AddLaplacian(b, 0, smoothing * scaleModel, s.VerticalSmoothingWeight, s.SmoothingScale, null);
         }
         else if (mesh != null)
         {
-            mesh.AddDamping(b, 0, damping);
-            mesh.AddLaplacian(b, 0, smoothing, s.VerticalSmoothingWeight, s.SmoothingScale, null);
+            mesh.AddDamping(b, 0, damping * scaleModel);
+            mesh.AddLaplacian(b, 0, smoothing * scaleModel, s.VerticalSmoothingWeight, s.SmoothingScale, null);
         }
         else
         {
-            Regularization.AddDamping(b, 0, n, damping);
-            Regularization.AddSmoothing(b, grid, 0, smoothing, s.VerticalSmoothingWeight, null, s.SmoothingMethod, s.EdgeScale, weightModel, s.SmoothingScale);
+            Regularization.AddDamping(b, 0, n, damping * scaleModel);
+            Regularization.AddSmoothing(b, grid, 0, smoothing * scaleModel, s.VerticalSmoothingWeight, null, s.SmoothingMethod, s.EdgeScale, weightModel, s.SmoothingScale);
         }
         if (offSt >= 0)
         {
-            Regularization.AddDamping(b, offSt, data.Stations.Count, s.DampingStation);
+            Regularization.AddDamping(b, offSt, data.Stations.Count, s.DampingStation * scaleStation);
             var zc = Enumerable.Range(offSt, data.Stations.Count).ToArray();
-            b.AddRow(zc, Enumerable.Repeat(1.0, zc.Length).ToArray(), 0, 10);
+            b.AddRow(zc, Enumerable.Repeat(1.0, zc.Length).ToArray(), 0, 10 * scaleStation);
         }
         var (g, rhs) = b.Build();
         var history = new List<double>();
@@ -376,7 +402,8 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         var dws = new double[n];
         foreach (var r in pr.Rows.Where(r => !data.Arrivals[r.Arrival].Rejected))
             for (var k = 0; k < r.Nodes.Length; k++) dws[r.Nodes[k]] += r.Length[k];
-        log?.Invoke($"Q tomography: {used} t* used, {rejected} rejected on the fitted model, RMS {pr.RmsBefore * 1000:0.0} → {Rms(data) * 1000:0.0} ms, LSQR {sol.Iterations} it. ({sol.StopReason}).");
+        log?.Invoke($"Q tomography: {used} t* used, {rejected} rejected on the fitted model, RMS {pr.RmsBefore * 1000:0.0} → {Rms(data) * 1000:0.0} ms, LSQR {sol.Iterations} it. ({sol.StopReason}); " +
+                     $"regularisation × {_scales.Model:0.###} (1/Q){(s.StationTerms ? $", × {_scales.Station:0.#} (station terms)" : "")}, the typical weighted sensitivity of a t* to each parameter.");
         return new QTomographyResult
         {
             Grid = grid, Q = q.Select(x => 1 / x).ToArray(), Dws = dws, Data = data, RmsBefore = pr.RmsBefore, RmsAfter = Rms(data),

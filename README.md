@@ -343,7 +343,7 @@ file are relative to the file.
 | `MinPhasesPerEvent`, `AutomaticPicks` | data selection |
 | `UseOpenCl`, `Threads`, `OutputFormats` | computing and output |
 | `Tomography` | velocity inversion: `Iterations`, `InvertP`, `InvertS`, `Parameterization` (`VpVs` or `VpVpVs`), `JointHypocentres`, `StationCorrections`, `DampingVelocity`, `Smoothing`, `SRegularisationFactor`, `SmoothingMethod` (`Laplacian`, `Gradient`, `TotalVariation`, `EdgePreserving`), `VerticalSmoothingWeight`, `SmoothingScale`, `RayMethod`, `ForwardRefinement`, `MaxSlownessStep`, `MaxStepHalvings`, outlier rules, velocity bounds, `StartVpVs` (`FromModel`, `FromData` from the Wadati diagram, `Constant`), and the subsections `Adaptive`, `Lattice` and `DoubleDifference` |
-| `Attenuation` | Q inversion: `Phase`, `Q0`, `EstimateQ0`, `Damping`, `Smoothing`, `StationTerms`, `SmoothingMethod`, `Adaptive`, `Lattice`, Q bounds |
+| `Attenuation` | Q inversion: `Phase`, `Q0`, `EstimateQ0`, `Damping`, `Smoothing`, `StationTerms`, `DampingStation`, `SmoothingMethod`, `Adaptive`, `Lattice`, Q bounds. Damping and smoothing are relative to the typical sensitivity of the t* to each parameter, so the same values hold whatever the background Q and the t* errors |
 | `Locator` | absolute location: grid search, Geiger iterations and damping, outliers, `FixDepth` |
 | `Relocation` | `Method`: `absolute` or `dd` |
 | `Picker` | filter band, STA and LTA lengths, trigger threshold, search window, `PickS`, `MinSnr` |
