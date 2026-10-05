@@ -2,6 +2,10 @@
 
 **Seismic Travel-time and Attenuation tomogRaphy from the command line**
 
+Matteo Mangiagalli - 2026
+m.mangiagalli@campus.uniurb.it
+Università degli Studi di Urbino - Carlo Bo
+
 TomoSTAR is a standalone, cross-platform (Linux, macOS, Windows) command-line program for local and
 regional earthquake tomography. It takes a network's stations, earthquakes and waveforms (or picks)
 through the whole processing sequence:
