@@ -1,0 +1,36 @@
+[
+  {
+    "case": "picker",
+    "method": "automatic P picks (STA/LTA trigger, AIC onset) on real waveforms",
+    "reference": "INGV analyst picks of the same records (ISIDe bulletin)",
+    "metric": "95th percentile of |t_auto - t_analyst| / travel time",
+    "value": 0.21016560372734608,
+    "threshold": 0.05,
+    "pass": false,
+    "details": {
+      "matched_picks": 3330,
+      "median_abs_s": 0.04,
+      "p95_abs_s": 1.0608549999999946,
+      "mean_s": 0.001423333333333331,
+      "within_0.1_s": 0.760960960960961,
+      "median_relative": 0.0076335022491381375
+    }
+  },
+  {
+    "case": "picker",
+    "method": "automatic S picks (STA/LTA trigger, AIC onset) on real waveforms",
+    "reference": "INGV analyst picks of the same records (ISIDe bulletin)",
+    "metric": "95th percentile of |t_auto - t_analyst| / travel time",
+    "value": 0.13239421318651168,
+    "threshold": 0.05,
+    "pass": false,
+    "details": {
+      "matched_picks": 2848,
+      "median_abs_s": 0.1699,
+      "p95_abs_s": 1.123230000000002,
+      "mean_s": 0.07400888342696631,
+      "within_0.1_s": 0.31179775280898875,
+      "median_relative": 0.01635261862225667
+    }
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "case": "tstar",
+    "method": "joint multitaper t* inversion of an event (Brune source, shared ln Omega0, alpha 0.27, t* >= 0)",
+    "reference": "AttenTIon inversion() (Stachnik et al. 2004; Wei and Wiens 2018), same spectra and corner frequency",
+    "metric": "max over events of ||t*_TomoSTAR - t*_AttenTIon|| / ||t*_AttenTIon||",
+    "value": 1.2675858101312542e-08,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "events": 243,
+      "records": 2785,
+      "median": 5.417661182484488e-10
+    }
+  },
+  {
+    "case": "tstar",
+    "method": "joint multitaper t* inversion with its own corner-frequency search",
+    "reference": "AttenTIon bestfc() + inversion(), same spectra, search records and corner range",
+    "metric": "median over events of ||t*_TomoSTAR - t*_AttenTIon|| / ||t*_AttenTIon||",
+    "value": 0.06962676786913108,
+    "threshold": null,
+    "pass": null,
+    "details": {
+      "events": 243,
+      "p90": 0.20100537210394753,
+      "corner_ratio_median": 1.121166703167182,
+      "corner_ratio_p10_p90": [
+        0.9999999999999998,
+        1.3560423579448593
+      ],
+      "attention_default_settings": {
+        "median": 0.11363154595768878,
+        "p90": 0.33093940405491007,
+        "corner_ratio_median": 1.0978398216127376
+      },
+      "note": "the two programs choose the corner frequency by different criteria (AttenTIon: ||r|| / sum(d); TomoSTAR: mean squared residual)"
+    }
+  },
+  {
+    "case": "tstar",
+    "method": "joint multitaper t* inversion with its corner-frequency search (least squares)",
+    "reference": "AttenTIon d, G and nnls on its corner grid with the least-squares criterion, same spectra, search records and range",
+    "metric": "median over events of ||t*_TomoSTAR - t*_AttenTIon|| / ||t*_AttenTIon||",
+    "value": 0.0041433705091921385,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "events": 243,
+      "p90": 0.013994709246203437,
+      "corner_ratio_median": 0.9999999999999996,
+      "corner_ratio_p10_p90": [
+        0.9827960243078117,
+        1.0178961472915085
+      ]
+    }
+  }
+]
