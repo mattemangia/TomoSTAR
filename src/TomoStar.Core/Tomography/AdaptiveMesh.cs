@@ -113,7 +113,7 @@ public readonly record struct AdaptiveCell(int I0, int I1, int J0, int J1, int K
 /// only the unknowns of the inversion are fewer where the data cannot tell nodes apart.
 ///
 /// This is the irregular parameterisation of seismic tomography (Abers &amp; Roecker 1991; Spakman &amp;
-/// Bijwaard 2001, Pure Appl. Geophys. 158, 1277-1305; Sambridge &amp; Rawlinson 2005), built on the
+/// Bijwaard 2001, Pure Appl. Geophys. 158, 1401-1423; Sambridge &amp; Rawlinson 2005), built on the
 /// octree so that cells nest and a later step can refine where an earlier one found resolution:
 /// a cell is divided when its children would still be sampled (see
 /// <see cref="AdaptiveGridSettings.Threshold"/>), adjacent cells are kept within a factor two of each
