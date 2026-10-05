@@ -108,6 +108,50 @@ public class QShallowLayerTests
         return d == 0 ? 0 : x.Zip(y).Sum(p => (p.First - mx) * (p.Second - my)) / d;
     }
 
+    /// <summary>
+    /// The reference Q from the data: without station terms the median of the path averages T / t*,
+    /// with station terms the uniform Q fitting all t* by weighted least squares, both computed here
+    /// independently along the straight rays.
+    /// </summary>
+    [Fact]
+    public void ReferenceQIsTheMedianPathAverageWithoutStationTerms()
+    {
+        var (grid, vp, vs, _, _, data) = Layered(shallowLayer: true, siteSpread: 0);
+        var slow = vp.Select(v => 1 / v).ToArray();
+        var ratios = new List<double>();
+        double num = 0, den = 0;
+        foreach (var a in data.Arrivals)
+        {
+            var e = data.Events[a.Event];
+            var st = data.Stations[a.Station];
+            var tt = RayTracing.Time(RayTracing.Kernel(grid, RayTracing.Straight(e.Lon, e.Lat, e.DepthKm, st.Lon, st.Lat, st.DepthKm, 0.5)), slow);
+            ratios.Add(a.Time / tt);
+            num += a.Time * tt / (a.Sigma * a.Sigma);
+            den += tt * tt / (a.Sigma * a.Sigma);
+        }
+        ratios.Sort();
+        var m = ratios.Count / 2;
+        var median = 1 / (ratios.Count % 2 == 1 ? ratios[m] : 0.5 * (ratios[m - 1] + ratios[m]));
+        var fit = den / num;
+        Assert.True(Math.Abs(median / fit - 1) > 0.05, $"the test needs estimators that differ: median {median:0.0}, fit {fit:0.0}");
+        foreach (var terms in new[] { false, true })
+        {
+            var settings = new QTomographySettings { RayMethod = RayMethod.Straight, UseOpenCl = false, StationTerms = terms };
+            var dir = Path.Combine(Path.GetTempPath(), $"quiver_{Guid.NewGuid():N}");
+            try
+            {
+                var r = new QTomography(grid, settings, dir).Run(data, vp, vs);
+                var expected = terms ? fit : median;
+                Assert.True(Math.Abs(r.ReferenceQ / expected - 1) < 0.01,
+                    $"station terms {terms}: reference Q {r.ReferenceQ:0.0}, expected {expected:0.0} (median {median:0.0}, weighted fit {fit:0.0})");
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+        }
+    }
+
     private static double Median(IEnumerable<double> v)
     {
         var a = v.OrderBy(x => x).ToArray();
