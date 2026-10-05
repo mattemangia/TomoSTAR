@@ -50,7 +50,7 @@
   },
   {
     "case": "formats",
-    "method": "instrument response amplitude (poles and zeros, sensitivity)",
+    "method": "instrument response amplitude (stage gains, poles and zeros, digital filters)",
     "reference": "ObsPy evalresp (all stages)",
     "metric": "max relative error in the pass band",
     "value": 0.008335414413922581,

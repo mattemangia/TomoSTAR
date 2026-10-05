@@ -589,16 +589,31 @@ Project Partner Institutions, 1990), 3A (INGV, CNR-IGAG and CNR-IDPA, 2018), XO 
 - the configuration layers and the script interpreter (variables, loops, conditions, JSON values,
   tolerated and fatal failures).
 
-The synthetic data sets (`tomostar synth`) are the reproducible validation of the program: the true
-models are written with the data, so every result can be compared with its answer, and the seed
-makes each data set identical on every machine. On the example of `examples/synthetic`, the
-absolute relocation in the 1-D model reduces the median horizontal error of the starting hypocentres
-from about 1.1 km to about 0.2 km, and the double-difference relocation in the 3-D model to about
-0.1 km; the 16 km checkerboard is recovered with a correlation above 0.9 over the well-sampled
-nodes, and the automatic picks agree with the synthetic onsets within the reading error.
+The synthetic data sets (`tomostar synth`) serve the unit tests and the examples: the true models
+are written with the data, and the seed makes each data set identical on every machine.
 
-The engines are those of QUIVER, where they are validated against independent codes and real
-data sets (see the QUIVER documentation).
+**Validation on real data.** Every method is compared with a published reference code run on the
+same real input, or with the published results of a peer-reviewed study; the input is the
+2016-2017 central Italy sequence of `examples/norcia2016` and published reference models, and the
+limit is an error of 5 %. The scripts are in `validation/`, and
+[docs/validation.md](docs/validation.md) gives the table of results, the data, the reference codes
+with their versions and how each comparison is made. In short:
+
+| Method | Reference | Result |
+|---|---|---|
+| Fast marching, rays, rows of G | TauP (ak135); PyKonal in the real 3-D model | times within 2.3 %, rays within 3.2 % of their length |
+| LSQR | SciPy, on the real matrix and residuals | 2.5e-9 |
+| Absolute location | NonLinLoc on the same 2991 events and picks | 150 m median, 1.0 % of the hypocentral distance (95 %) |
+| Double difference | HypoDD on the same events and picks | 373 m median, 4.1 % (95 %) |
+| t\* inversion | AttenTIon on the same spectra | to rounding at the same corner; 0.4 % with the same criterion |
+| Q forward operator | independent integration along the rays | 1.3 % (95 %) |
+| Picking | INGV analyst picks (most precise class) | P within 4.1 % of the travel time, S within 5.6 % (95 %) |
+| Responses, filters, readers | ObsPy and SciPy, on 1002 channel epochs | 0.8 % (response), 0.14 % (removal), exact (readers) |
+
+The S picks are the one result above the limit. The comparisons found and corrected five defects,
+listed in the document: the step control of the double difference, the search window of the
+picker, and three cases of the instrument response (stage gains declared at another frequency,
+digital filters with a sloping passband, an uncorrected filter delay).
 
 ## Using the library
 

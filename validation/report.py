@@ -30,7 +30,8 @@ for path in sorted(glob.glob(os.path.join(HERE, "results", "*.json")), key=lambd
     for r in json.load(open(path)):
         status = "information" if r["pass"] is None else ("pass" if r["pass"] else "FAIL")
         limit = "" if r["threshold"] is None else fmt(r["threshold"])
-        rows.append(f"| {r['case']} | {r['method']} | {r['reference']} | {r['metric']} | {fmt(r['value'])} | {limit} | {status} |")
+        cell = lambda t: str(t).replace("|", "\\|")  # a bar inside a cell would end it
+        rows.append(f"| {cell(r['case'])} | {cell(r['method'])} | {cell(r['reference'])} | {cell(r['metric'])} | {fmt(r['value'])} | {limit} | {status} |")
 table = "\n".join(["| Case | TomoSTAR method | Reference | Metric | Value | Limit | Result |", "|---|---|---|---|---|---|---|"] + rows)
 text = open(DOC).read()
 begin, end = "<!-- results begin -->", "<!-- results end -->"
