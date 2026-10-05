@@ -1,0 +1,51 @@
+[
+  {
+    "case": "eikonal",
+    "method": "fast marching, ak135 first arrivals (P and S)",
+    "reference": "TauP (ObsPy)",
+    "metric": "max relative error",
+    "value": 0.009776120760510824,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "times": 300,
+      "rms_relative_error": 0.0029759486245437596,
+      "max_abs_error_s": 0.21669129949155774
+    }
+  },
+  {
+    "case": "eikonal",
+    "method": "fast marching, real 3-D Vp and Vs model (central Italy 2016-2017), station to hypocentre, beyond 5 km",
+    "reference": "PyKonal (grid refined 4 times)",
+    "metric": "max relative error",
+    "value": 0.02293835662242045,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "stations": [
+        "IV.GUMA",
+        "IV.CAMP",
+        "IV.LNSS",
+        "IV.RM33",
+        "IV.FEMA",
+        "IV.GIGS",
+        "IV.ARRO",
+        "IV.TERO"
+      ],
+      "pairs": 57026,
+      "p99_relative_error": 0.010652099197206649,
+      "rms_relative_error": 0.003920045092880539,
+      "grid": {
+        "MinLon": 12.75,
+        "MaxLon": 13.7,
+        "MinLat": 42.35,
+        "MaxLat": 43.2,
+        "MinDepthKm": -2.5,
+        "MaxDepthKm": 25,
+        "Nx": 53,
+        "Ny": 65,
+        "Nz": 37
+      }
+    }
+  }
+]

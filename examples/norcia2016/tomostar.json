@@ -1,0 +1,53 @@
+{
+  // Real-data example: the 2016-2017 Amatrice-Visso-Norcia sequence (central Italy), INGV bulletin
+  // picks of the M >= 2.5 events. Settings not written here keep their defaults.
+  "StartingModel": "Carannante2013",
+  "MinPhasesPerEvent": 8,
+  "OutputFormats": [ "csv" ],
+
+  "GridAdvice": {
+    "HorizontalSpacingKm": 3,
+    "VerticalSpacingKm": 1.5,
+    "TopKm": -2.5,
+    "BottomKm": 25
+  },
+
+  "Tomography": {
+    "Iterations": 5,
+    "ForwardRefinement": 2,
+    "InvertS": true,
+    "Parameterization": "VpVs",
+    "JointHypocentres": true,
+    "StationCorrections": true,
+    "VerticalSmoothingWeight": 0.1,
+    // Octree cells used by 'invert --adaptive': down to one node where more than 50 rays
+    // cross a child cell, up to 8 x 8 x 4 nodes elsewhere.
+    "Adaptive": { "MaxCellNodes": 8, "MaxCellNodesDepth": 4, "Threshold": 50 }
+  },
+
+  "Attenuation": {
+    "Phase": "P",
+    "EstimateQ0": true,
+    "StationTerms": true
+  },
+
+  "TStar": {
+    "Method": "SingleTaper",
+    "MinFrequencyHz": 1,
+    "MaxFrequencyHz": 30,
+    "MinSnr": 3
+  },
+
+  "LCurve": {
+    "Dampings": [ 2, 5, 10, 20, 50, 100, 200 ],
+    "Smoothings": [ 10, 30, 90 ]
+  },
+
+  "Resolution": {
+    "CellKm": 12,
+    "CellDepthKm": 6,
+    "AmplitudePercent": 5,
+    "NoiseP": 0.05,
+    "NoiseS": 0.1
+  }
+}

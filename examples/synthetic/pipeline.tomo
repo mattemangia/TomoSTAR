@@ -1,0 +1,67 @@
+# TomoSTAR example: the complete processing of a synthetic data set, from the waveforms to the
+# velocity and attenuation models and their resolution tests. Run it with
+#
+#     tomostar run examples/synthetic/pipeline.tomo
+#
+# Relative paths are relative to this folder. Results go to ./out (override: --var OUT=/some/dir).
+# The data set has a known answer (out/data/truth/*.qvol) to compare every result with.
+
+default OUT = out
+config tomostar.json
+
+# 1. Synthetic data: 25 stations, 150 events, picks, t* and three-component waveforms.
+if missing ${OUT}/data/stations.csv
+  synth --out ${OUT}/data
+end
+
+# 2. Grid and 1-D profile proposed from the data (grid.json, profile1d.csv, advice.txt).
+grid --stations ${OUT}/data/stations.csv --events ${OUT}/data/events.csv --picks ${OUT}/data/picks.csv \
+     --out ${OUT}/grid
+options --grid ${OUT}/grid/grid.json
+
+# 3. Automatic STA/LTA + AIC picking on the waveforms (the synthetic picks are not used).
+pick --stations ${OUT}/data/stations.csv --events ${OUT}/data/events.csv --waveforms ${OUT}/data/waveforms \
+     --out ${OUT}/picks
+
+# 4. Absolute relocation in the 1-D model, then the minimum 1-D model.
+relocate ${OUT}/picks --method absolute --out ${OUT}/reloc
+minimum1d ${OUT}/reloc --out ${OUT}/min1d
+
+# 5. L-curve of damping and smoothing, from the minimum 1-D model; the chosen pair is read back.
+lcurve ${OUT}/reloc --model ${OUT}/min1d/model1d_minimum.txt --out ${OUT}/lcurve
+set DAMPING = ${json:${OUT}/lcurve/summary.json:Recommended.Damping}
+set SMOOTHING = ${json:${OUT}/lcurve/summary.json:Recommended.Smoothing}
+echo L-curve: damping ${DAMPING}, smoothing ${SMOOTHING}
+
+# 6. Travel-time tomography (Vp, Vs, hypocentres, station terms).
+invert ${OUT}/reloc --model ${OUT}/min1d/model1d_minimum.txt --damping ${DAMPING} --smoothing ${SMOOTHING} \
+       --out ${OUT}/vel --name vel
+
+# 7. Checkerboard and spike tests in the final model, with the same settings.
+resolution ${OUT}/reloc --model ${OUT}/min1d/model1d_minimum.txt --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol \
+           --set Tomography.DampingVelocity=${DAMPING} --set Tomography.Smoothing=${SMOOTHING} \
+           --pattern checkerboard --target Vp --out ${OUT}/checker_vp
+resolution ${OUT}/reloc --model ${OUT}/min1d/model1d_minimum.txt --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol \
+           --set Tomography.DampingVelocity=${DAMPING} --set Tomography.Smoothing=${SMOOTHING} \
+           --pattern spike --spike 13.3,42.85,8,5,8 --target VpVs --out ${OUT}/spike_vpvs
+
+# 8. Relocation in the 3-D model (double difference).
+relocate ${OUT}/reloc --method dd --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol --out ${OUT}/reloc_dd
+
+# 9. t* from the waveforms at the relocated hypocentres, Q L-curve and Q tomography in the 3-D model.
+tstar ${OUT}/reloc_dd --waveforms ${OUT}/data/waveforms --out ${OUT}/tstar
+lcurve ${OUT}/reloc_dd --kind q --tstar ${OUT}/tstar/tstar.csv --model ${OUT}/min1d/model1d_minimum.txt \
+       --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol --out ${OUT}/lcurve_q
+qtomo ${OUT}/reloc_dd --tstar ${OUT}/tstar/tstar.csv --model ${OUT}/min1d/model1d_minimum.txt \
+      --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol \
+      --damping ${json:${OUT}/lcurve_q/summary.json:Recommended.Damping} \
+      --smoothing ${json:${OUT}/lcurve_q/summary.json:Recommended.Smoothing} --out ${OUT}/q --name q
+resolution ${OUT}/reloc_dd --tstar ${OUT}/tstar/tstar.csv --target Q --amplitude 30 --model ${OUT}/min1d/model1d_minimum.txt \
+           --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol --out ${OUT}/checker_q
+
+# 10. A sweep of the smoothing, to see how the model changes with it.
+foreach S in 10 40
+  invert ${OUT}/reloc --model ${OUT}/min1d/model1d_minimum.txt --damping ${DAMPING} --smoothing ${S} --out ${OUT}/sweep/smoothing_${S} --quiet
+end
+
+echo Done. Compare ${OUT}/vel/volumes/vel_dVp.qvol with ${OUT}/data/truth/true_dVp.qvol (QUIVER, ParaView or the CSV files).

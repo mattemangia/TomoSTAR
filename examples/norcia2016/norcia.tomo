@@ -1,0 +1,73 @@
+# TomoSTAR on real data: the 2016-2017 Amatrice-Visso-Norcia sequence, central Italy (Mw 6.0
+# Amatrice, Mw 5.9 Visso, Mw 6.5 Norcia). Download the data first (bash download.sh), then
+#
+#     tomostar run norcia.tomo            (results in ./out; figures: bash figures.sh)
+#
+# Data: INGV bulletin, M >= 2.5 events of 2016-08-24 to 2017-03-01 with their analyst picks
+# (QuakeML, one file per event), stations and responses from EIDA (StationXML), and the waveforms
+# of the M >= 3.5 events for t*.
+
+default DATA = data
+default OUT = out
+config tomostar.json
+options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml
+
+# 1. Grid over the sequence (3 km x 3 km x 1.5 km) and the 1-D profile of Carannante et al. (2013) on it.
+if missing ${OUT}/grid/grid.json
+  grid --bounds 12.75,13.7,42.35,43.2 --out ${OUT}/grid
+end
+options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml --grid ${OUT}/grid/grid.json
+
+# 2. Absolute relocation in the 1-D model and minimum 1-D model from the relocated events.
+if missing ${OUT}/reloc/events_relocated.csv
+  relocate --out ${OUT}/reloc
+end
+options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml --grid ${OUT}/grid/grid.json \
+        --hypocentres ${OUT}/reloc/events_relocated.csv
+if missing ${OUT}/min1d/model1d_minimum.txt
+  minimum1d --out ${OUT}/min1d
+end
+# From here on: the hypocentres and station terms of the minimum 1-D model as the start.
+options --stations ${OUT}/min1d/stations.csv --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml \
+        --grid ${OUT}/grid/grid.json --hypocentres ${OUT}/min1d/events_relocated.csv --model ${OUT}/min1d/model1d_minimum.txt
+
+# 3. Regularisation from the L-curve, then Vp, Vs and Vp/Vs on the regular grid and on adaptive cells.
+if missing ${OUT}/lcurve/summary.json
+  lcurve --out ${OUT}/lcurve
+end
+set D = ${json:${OUT}/lcurve/summary.json:Recommended.Damping}
+set S = ${json:${OUT}/lcurve/summary.json:Recommended.Smoothing}
+echo Regularisation from the L-curve: damping ${D}, smoothing ${S}
+if missing ${OUT}/vel/summary.json
+  invert --damping ${D} --smoothing ${S} --out ${OUT}/vel --name vel
+end
+if missing ${OUT}/vel_adaptive/summary.json
+  invert --damping ${D} --smoothing ${S} --adaptive --out ${OUT}/vel_adaptive --name vel_adaptive
+end
+
+# 4. Checkerboard test on the real source-receiver geometry, in the final model.
+if missing ${OUT}/checker_vp/summary.json
+  resolution --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol \
+             --set Tomography.DampingVelocity=${D} --set Tomography.Smoothing=${S} \
+             --pattern checkerboard --target Vp --out ${OUT}/checker_vp --name checker_vp
+end
+
+# 5. (once download.sh has finished the waveforms) t* of the M >= 3.5 events at their final hypocentres, then the Qp tomography in the 3-D model.
+if missing ${DATA}/waveforms/.complete
+  echo The waveforms are not all downloaded yet (run download.sh): t* and Q are skipped.
+  exit
+end
+options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml --grid ${OUT}/grid/grid.json \
+        --hypocentres ${OUT}/vel/events_relocated.csv --model ${OUT}/min1d/model1d_minimum.txt
+if missing ${OUT}/tstar/tstar.csv
+  tstar --waveforms ${DATA}/waveforms --out ${OUT}/tstar
+end
+options --quakeml ${DATA}/quakeml --stationxml ${DATA}/stations.xml \
+        --grid ${OUT}/grid/grid.json --hypocentres ${OUT}/vel/events_relocated.csv \
+        --model ${OUT}/min1d/model1d_minimum.txt --tstar ${OUT}/tstar/tstar.csv \
+        --vp ${OUT}/vel/volumes/vel_Vp.qvol --vs ${OUT}/vel/volumes/vel_Vs.qvol
+if missing ${OUT}/lcurve_q/summary.json
+  lcurve --kind q --out ${OUT}/lcurve_q
+end
+qtomo --damping ${json:${OUT}/lcurve_q/summary.json:Recommended.Damping} \
+      --smoothing ${json:${OUT}/lcurve_q/summary.json:Recommended.Smoothing} --out ${OUT}/q --name q

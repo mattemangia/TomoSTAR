@@ -1,0 +1,68 @@
+[
+  {
+    "case": "signal",
+    "method": "instrument response removal to velocity",
+    "reference": "ObsPy remove_response",
+    "metric": "max relative L2 difference",
+    "value": 0.0013951940744601603,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "traces": 90,
+      "pre_filter_hz": [
+        0.2,
+        0.5,
+        20.0,
+        30.0
+      ],
+      "water_level_db": 60,
+      "max_on_records_of_50_s_or_more": 0.0013951940744601603,
+      "note": "the residual difference is the FFT length (TomoSTAR pads to a power of 2) and the taper of short records (gap fragments)"
+    }
+  },
+  {
+    "case": "signal",
+    "method": "Butterworth band-pass 1-15 Hz, orders 2 and 4, causal and zero phase",
+    "reference": "SciPy butter + sosfilt",
+    "metric": "max relative L2 difference",
+    "value": 5.991498744763724e-08,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {}
+  },
+  {
+    "case": "signal",
+    "method": "Slepian (DPSS) tapers",
+    "reference": "SciPy dpss",
+    "metric": "max L2 difference of the unit-norm tapers",
+    "value": 5.206358200456899e-13,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {}
+  },
+  {
+    "case": "signal",
+    "method": "recursive STA/LTA",
+    "reference": "ObsPy recursive_sta_lta",
+    "metric": "max relative difference after 8 LTA",
+    "value": 9.48984624549196e-08,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "samples_compared": 4596
+    }
+  },
+  {
+    "case": "signal",
+    "method": "AIC function of the onset picker (Maeda 1985)",
+    "reference": "ObsPy aic_simple (aligned by one sample)",
+    "metric": "max relative difference",
+    "value": 4.3438887362023766e-16,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "onset_tomostar": 1719,
+      "onset_obspy_plus_one": 1719
+    }
+  }
+]

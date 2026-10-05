@@ -1,0 +1,50 @@
+[
+  {
+    "case": "double_difference",
+    "method": "double-difference relocation, catalogue differential times of the INGV picks",
+    "reference": "HypoDD 2.1b (Waldhauser 2001), same picks, pairs, weights and model",
+    "metric": "95th percentile of |hypocentre difference| / median hypocentral distance (cluster offsets removed)",
+    "value": 0.04067018686355056,
+    "threshold": 0.05,
+    "pass": true,
+    "details": {
+      "events": 2978,
+      "clusters": 1,
+      "median_km": 0.3730884383057388,
+      "p95_km": 1.1801054433790579,
+      "median_relative": 0.012711132330008442,
+      "p95_relative": 0.04067018686355056,
+      "hypodd_median_shift_from_start_km": 0.8816811369684575,
+      "relocated_hypodd": 2978,
+      "relocated_tomostar": 2991
+    }
+  },
+  {
+    "case": "double_difference",
+    "method": "double-difference relocation, catalogue differential times of the INGV picks",
+    "reference": "published catalogue CAT2 (Michele et al. 2020; HypoDD with cross-correlation delays)",
+    "metric": "95th percentile of |hypocentre difference| / median hypocentral distance (mean offset removed)",
+    "value": 0.06756456136132473,
+    "threshold": null,
+    "pass": null,
+    "details": {
+      "events": 2574,
+      "clusters": 1,
+      "median_km": 0.6560862354056911,
+      "p95_km": 1.8512390984586933,
+      "median_relative": 0.02279534371026969,
+      "p95_relative": 0.06756456136132473,
+      "hypodd_same_input_vs_cat2": {
+        "median_km": 0.6601700345611251,
+        "p95_km": 1.8883586366103227,
+        "median_relative": 0.022542629254597272,
+        "p95_relative": 0.06605572635208434
+      },
+      "published_formal_errors_km": {
+        "east": 0.11,
+        "north": 0.12,
+        "vertical": 0.162
+      }
+    }
+  }
+]
