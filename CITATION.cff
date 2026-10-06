@@ -12,6 +12,7 @@ authors:
     given-names: Matteo
     affiliation: "Università degli Studi di Urbino Carlo Bo"
     orcid: "https://orcid.org/0009-0003-2031-8729"
+doi: 10.5281/zenodo.23188347
 repository-code: "https://github.com/mattemangia/TomoSTAR"
 license: Apache-2.0
 version: 1.0.0

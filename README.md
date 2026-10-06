@@ -1,5 +1,7 @@
 # TomoSTAR
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23188347.svg)](https://doi.org/10.5281/zenodo.23188347)
+
 **Seismic Travel-time and Attenuation tomogRaphy from the command line**
 
 Matteo Mangiagalli - 2026
@@ -74,6 +76,12 @@ dotnet publish src/TomoStar.Cli -c Release -r linux-x64 --self-contained -p:Publ
 
 (`-r osx-arm64`, `osx-x64`, `win-x64` or `linux-arm64` for the other platforms). In the rest of this
 document `tomostar` stands for the executable.
+
+Ready-made executables for these five platforms, and `TomoSTAR.app` for macOS, are attached to each
+[release](https://github.com/mattemangia/TomoSTAR/releases). Double-clicking `TomoSTAR.app` opens a
+Terminal window in which `tomostar` is ready; the application holds the Apple silicon and the Intel
+executables and runs the one of the machine (it is built by `tools/make_macos_app.py`). The macOS
+files are not notarised: run `xattr -dr com.apple.quarantine TomoSTAR.app` once after extracting.
 
 ## Quick start
 
@@ -745,7 +753,9 @@ examples/               synthetic/ (complete pipeline), quiver/ (working on a QU
 
 ## Citing
 
-If you use TomoSTAR, please cite it (see `CITATION.cff`) and the papers of the methods you use
+If you use TomoSTAR, please cite it through its DOI,
+[10.5281/zenodo.23188347](https://doi.org/10.5281/zenodo.23188347) (all versions; each release has
+its own DOI on that page, 10.5281/zenodo.23188348 for 1.0.0), see `CITATION.cff`, and the papers of the methods you use
 (see [References](#references)); when a published 1-D model of the library is used, cite its paper
 too (`tomostar model1d --list` gives the DOIs).
 
