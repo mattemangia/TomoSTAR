@@ -27,10 +27,6 @@ numerical kernels use the SIMD units of the processor (SSE, AVX2, AVX-512, NEON)
 `System.Numerics.Vector<T>` and, when an OpenCL device passes a self-test against the CPU solvers,
 the GPU for the eikonal equation and for LSQR.
 
-Input and output are plain text tables and the volume format of
-[QUIVER](https://github.com/mattemangia/Quiver), the desktop workstation TomoSTAR derives from: a
-QUIVER project can be read in place as the data, and the results can be registered back into it,
-where they appear in QUIVER's 3-D viewer, sections and diagnostics.
 
 ## Contents
 
@@ -39,7 +35,6 @@ where they appear in QUIVER's 3-D viewer, sections and diagnostics.
 - [The processing sequence](#the-processing-sequence)
 - [Input data](#input-data)
 - [Output](#output)
-- [Working with QUIVER](#working-with-quiver)
 - [Commands](#commands)
 - [Configuration](#configuration)
 - [Scripts](#scripts)
@@ -96,7 +91,7 @@ tomostar run examples/synthetic/pipeline.tomo
 
 It takes about a minute on a laptop and writes everything under `examples/synthetic/out`. The true
 models are in `out/data/truth/*.qvol`, to be compared with the results (for example
-`out/vel/volumes/vel_dVp.qvol`) in QUIVER, in ParaView (the `.vtk` files) or from the `.csv` files.
+`out/vel/volumes/vel_dVp.qvol`) in ParaView (the `.vtk` files) or from the `.csv` files.
 The script (`examples/synthetic/pipeline.tomo`) is commented line by line and is the best place to
 see how the commands fit together.
 
@@ -108,12 +103,12 @@ tomostar invert mydata --grid runs/grid/grid.json --out runs/vel
 ```
 
 where `mydata` is a folder with `stations.csv`, `events.csv` and `picks.csv` (see
-[Input data](#input-data)) or a QUIVER project.
+[Input data](#input-data)) or a project.
 
 ## The processing sequence
 
 ```
- waveforms (miniSEED)       stations, events (CSV, QuakeML, StationXML, QUIVER project)
+ waveforms (miniSEED)       stations, events (CSV, QuakeML, StationXML, project)
         |                                  |
         +---------------> pick <-----------+         STA/LTA + AIC around predicted arrivals
                             |
@@ -212,7 +207,7 @@ suits the grid area best.
 event, `WAVEFORMS/<event id>/*.mseed` (any file names; the synthetic data sets use it). Any other
 arrangement of miniSEED files under `--waveforms` also works: the files are indexed once and the
 segments overlapping each event's time window (`Waveforms.BeforeSeconds`, `AfterSeconds`) are read.
-The waveforms of a QUIVER project are found through its catalogue.
+The waveforms of a project are found through its catalogue.
 
 ## Output
 
@@ -231,7 +226,7 @@ Each command writes a run folder (`--out DIR`, default `runs/<date_time>_<comman
 | `residuals.csv` | every arrival: distance, azimuth, initial and final residual, rejection and its reason |
 | `hypocentres.csv`, `events_relocated.csv` | starting and final hypocentres; the latter is an event table |
 | `stations.csv` | station terms and mean residuals |
-| `rays.qray` | the final rays (binary, readable by QUIVER) |
+| `rays.qray` | the final rays (binary) |
 | `G.qcsr`, `G.layout.json` | the last linear system (sensitivity matrix) and its column layout |
 | `log.txt` | everything printed during the run |
 
@@ -243,7 +238,7 @@ correlations. `qtomo` writes `Qp` (or `Qs`), `1000_over_Qp`, `DWS_Q` and `statio
 writes `grid.json`, `advice.txt` (every choice and its reason), `profile1d.csv` (the 1-D model at the
 grid depths), `model1d.txt`, the starting volumes and a `config.json` to start from.
 
-**Volume format.** A `.qvol` file is the QUIVER volume: an 8-byte magic `QVOL\x01\0\0\0`, a
+**Volume format.** A `.qvol` file is the volume: an 8-byte magic `QVOL\x01\0\0\0`, a
 little-endian int32 header length, a UTF-8 JSON header (name, quantity, units, grid definition,
 provenance), zero padding to a 64-byte boundary, then Nx x Ny x Nz little-endian float32 values with
 longitude fastest and depth slowest; NaN marks no data. Node i of Nx is at
@@ -252,91 +247,11 @@ header `lon,lat,depth_km,value` preceded by `# QUIVER volume: ...` comment lines
 legacy binary STRUCTURED_GRID in km in a local east, north, up frame (the true curved geometry),
 with longitude, latitude and depth as extra point scalars. `tomostar export` converts any `.qvol`.
 
-## Working with QUIVER
-
-**Reading a project.** Give the project folder (`study.quiver`, or its `project.json`) as the data:
-
-```bash
-tomostar invert /path/to/study.quiver --out runs/vel
-```
-
-TomoSTAR then reads, without QUIVER and without changing the project:
-
-- `stations.json`: the stations and their corrections;
-- `catalog.sqlite` (opened read-only): events (starting from QUIVER's relocation when there is one,
-  or from the catalogue location with `--catalog-locations`), picks with their uncertainty, quality,
-  origin and disabled flag, t\* measurements and waveform references;
-- `project.json`: the grid, the starting model, the tomography and attenuation settings and the rule
-  for data outside the grid. These become the defaults of the run; a configuration file and `--set`
-  still override them (see [Configuration](#configuration)).
-
-**Writing into a project.** `--register PROJECT` (or `--register data` when the project is the data)
-copies the run folder into the project's `runs` folder, where QUIVER's Diagnostics tab lists it
-(RMS per iteration, LSQR convergence, residuals, rays, sensitivity), copies the volumes into its
-`volumes` folder and adds them to the volume list of `project.json`, so they appear in the project tree
-the next time the project is opened. Close the project in QUIVER before registering: QUIVER writes its
-own list back when it saves. `project.json` is backed up as `project.json.bak` first. An existing run
-folder can be registered later with `tomostar register RUN --project PROJECT`.
-
-**Importing by hand.** Every `.qvol`, `.csv` and `.vtk` volume TomoSTAR writes can also be opened with
-QUIVER's File, Import volume.
-
-`examples/quiver/quiver_project.tomo` runs an L-curve, a tomography, a checkerboard test and a Q
-tomography on a QUIVER project and registers the results in it.
-
-## Commands
-
-`tomostar help` lists the commands and the options they share; `tomostar help COMMAND` shows the
-usage of one. The first word after the command, when it is not an option, is the data (`--data`).
-
-| command | what it does | main options |
-|---|---|---|
-| `synth` | synthetic data set with a known answer | `--with-waveforms`, `--events`, `--stations`, `--seed`, section `Synthetic` |
-| `grid` | grid and 1-D profile from the data, or from `--bounds` | `--h`, `--dz`, `--margin`, `--top`, `--bottom`, `--bounds LON1,LON2,LAT1,LAT2`, `--model` |
-| `model1d` | list, show, export, choose (`--area`) or sample (`--grid`) a 1-D model | `--list`, `--out`, `--area`, `--grid`, `--profile` |
-| `pick` | STA/LTA and AIC picks around the predicted arrivals | `--waveforms`, `--only-automatic`, section `Picker` |
-| `relocate` | absolute or double-difference relocation in a 1-D or 3-D model | `--method absolute|dd`, `--fix-depth`, `--vp`, `--vs`, sections `Locator`, `Tomography.DoubleDifference` |
-| `minimum1d` | minimum 1-D model | `--iterations`, `--damping`, `--smoothing` |
-| `invert` | Vp, Vs (or Vp/Vs) tomography with hypocentres and station terms | `--iterations`, `--damping`, `--smoothing`, `--adaptive`, `--layered`, section `Tomography` |
-| `lcurve` | trade-off curves and recommended regularisation | `--kind velocity|q`, `--dampings`, `--smoothings`, `--save-models`, `--update-config FILE` |
-| `resolution` | checkerboard, spike and body tests | `--pattern`, `--target Vp|Vs|VpVs|Leakage|Q|QLeakage`, `--cell`, `--cell-depth`, `--amplitude`, `--spike`, `--body`, `--seed` |
-| `tstar` | t\* from P (and S) displacement spectra | `--waveforms`, `--stationxml`, section `TStar` |
-| `qtomo` | Qp or Qs tomography | `--vp`, `--vs`, `--damping`, `--smoothing`, `--phase`, section `Attenuation` |
-| `export` | `.qvol` to CSV or VTK | `--csv`, `--vtk`, `--out` |
-| `register` | add a run folder to a QUIVER project | `--project`, `--name` |
-| `config` | effective configuration, or `--template` | `--template --out FILE` |
-| `info` | version, SIMD width, OpenCL devices and self-tests | |
-| `run` | run a script | `--var NAME=value`, `--dry-run`, `--keep-going` |
-
-Options every command accepts:
-
-| option | meaning |
-|---|---|
-| `--data PATH` | folder of tables, or a QUIVER project |
-| `--stations`, `--events`, `--picks`, `--tstar` | single tables, replacing those of `--data` |
-| `--quakeml`, `--stationxml` | add QuakeML events and picks, StationXML stations and responses |
-| `--hypocentres FILE` | an event table whose hypocentres replace those of the same events |
-| `--grid FILE` | `grid.json` or a QUIVER project; otherwise the configuration's, the `--vp` volume's, or one proposed from the data |
-| `--model M` | the 1-D starting and background model |
-| `--vp FILE --vs FILE` | a 3-D model (`.qvol`, resampled when on another grid); Vs from the 1-D Vp/Vs when only `--vp` |
-| `--config FILE`, `--set Path=value` | configuration file and overrides |
-| `--out DIR`, `--name NAME` | run folder and run name |
-| `--formats csv,vtk`, `--csv`, `--vtk` | volume formats besides `.qvol` |
-| `--register PROJECT` | copy the results into a QUIVER project |
-| `--adaptive` | adaptive octree parameterisation (velocity and Q) |
-| `--straight` | straight rays instead of fast marching |
-| `--no-opencl`, `--threads N` | CPU only; number of threads (0 = all) |
-| `--mpi` | enable MPI forward workers; pass once on the top-level command, including before `run` |
-| `--quiet`, `--keep-work` | print nothing; keep the travel-time tables in `work/` |
-
-Exit codes: 0 success, 1 error, 2 command-line mistake, 130 interrupted (Ctrl+C stops at the next
-checkpoint).
-
 ## Configuration
 
 Every setting lives in one JSON document. A command starts from the defaults and applies, in order:
 
-1. the settings of a QUIVER project given as data (grid, starting model, tomography and attenuation
+1. the settings of a project given as data (grid, starting model, tomography and attenuation
    settings, outside-data rule, OpenCL);
 2. the configuration file, `--config FILE`;
 3. each `--set Path=value`, for example `--set Tomography.Smoothing=30`,
@@ -352,7 +267,7 @@ file are relative to the file.
 |---|---|
 | `Grid` | the inversion grid (`MinLon`, `MaxLon`, `MinLat`, `MaxLat`, `MinDepthKm`, `MaxDepthKm`, `Nx`, `Ny`, `Nz`); null to propose one |
 | `GridAdvice` | what the grid proposal may not choose: spacings, margin, top, bottom |
-| `StartingModel` | library name, file, `auto`, or `quiver` (the project's model) |
+| `StartingModel` | library name, file, `auto` (the project's model) |
 | `OutsideData` | `Exclude`, or `WhenRaysCross`: events and stations outside the grid are used when their rays cross it, on an enlarged forward grid with the 1-D model outside |
 | `MinPhasesPerEvent`, `AutomaticPicks` | data selection |
 | `UseOpenCl`, `Threads`, `OutputFormats` | computing and output |
@@ -676,8 +591,8 @@ Project Partner Institutions, 1990), 3A (INGV, CNR-IGAG and CNR-IDPA, 2018), XO 
 - numerical kernels against closed-form answers (SIMD kernels, LSQR against the normal equations
   with and without damping, fast marching against straight rays in a homogeneous sphere to 1 %,
   trilinear interpolation of linear fields);
-- every file format by round trip (tables, `.qvol`, the QUIVER CSV and VTK headers, miniSEED) and a
-  QUIVER project folder read in place (SQLite catalogue with pick flags, relocations, t\*);
+- every file format by round trip (tables, `.qvol`, CSV and VTK headers, miniSEED) and a
+  project folder read in place (SQLite catalogue with pick flags, relocations, t\*);
 - the pipeline on a synthetic data set with a known answer: automatic picks within 60 ms of the
   reference onsets, relocation halving the location error, tomography reducing the RMS and
   correlating with the true checkerboard, a checkerboard test recovering its pattern, t\* from the
@@ -744,11 +659,11 @@ src/TomoStar.Core/      the library
   Location/             event locator and relocation
   Signal/               filters, STA/LTA and AIC picker, spectra, instrument responses
   Model/                catalogue, 1-D models and the library of published models
-  IO/                   CSV, QuakeML, StationXML, miniSEED, QUIVER projects and volumes, run output
+  IO/                   CSV, QuakeML, StationXML, miniSEED, projects and volumes, run output
   Compute/              OpenCL context, thread settings
 src/TomoStar.Cli/       the tomostar program, its configuration and script interpreter
 tests/TomoStar.Tests/   the test suite
-examples/               synthetic/ (complete pipeline), quiver/ (working on a QUIVER project)
+examples/               synthetic/ (complete pipeline)
 ```
 
 ## Citing
