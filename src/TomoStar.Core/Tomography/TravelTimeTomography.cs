@@ -138,6 +138,10 @@ public sealed class TomographySettings
     /// </summary>
     public LatticeSettings Lattice { get; set; } = new();
 
+    /// <summary>Exact resolution diagonal and standard deviations of the velocity unknowns on the last system, with
+    /// the hypocentres separated (<see cref="Tomography.FormalResolution"/>).</summary>
+    public FormalResolutionSettings FormalResolution { get; set; } = new();
+
     /// <summary>Starting Vs: the model's, or Vp over the data's (Wadati) or a given Vp/Vs. Applied by the tools that build the starting model.</summary>
     public StartingVpVs StartVpVs { get; set; } = StartingVpVs.FromModel;
 
@@ -148,6 +152,7 @@ public sealed class TomographySettings
         var c = (TomographySettings)MemberwiseClone();
         c.Adaptive = Adaptive.Clone();
         c.DoubleDifference = DoubleDifference.Clone();
+        c.FormalResolution = FormalResolution.Clone();
         c.Lattice = Lattice.Clone();
         return c;
     }
@@ -222,6 +227,12 @@ public sealed class TomographyResult
     public AdaptiveMesh? Mesh { get; init; }
     public List<string> Log { get; } = [];
     public string ForwardSolver { get; init; } = "";
+
+    /// <summary>Resolution diagonal and standard deviation of the P block (fractional change of P slowness), when asked for.</summary>
+    public FormalResolutionMaps? FormalP { get; init; }
+
+    /// <summary>The same for the S block: S slowness, or Vp/Vs with that parameterisation.</summary>
+    public FormalResolutionMaps? FormalS { get; init; }
 }
 
 /// <summary>
@@ -479,8 +490,10 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
 
         var (dwsP, hitsP) = Coverage(rows, data, Phase.P);
         var (dwsS, hitsS) = Coverage(rows, data, Phase.S);
+        var (formalP, formalS) = Formal(lastG, lastLayout, data, progress, ct);
         return new TomographyResult
         {
+            FormalP = formalP, FormalS = formalS,
             Grid = Grid,
             Vp = sP.Select(x => 1 / x).ToArray(),
             Vs = sS.Select(x => 1 / x).ToArray(),
@@ -490,6 +503,37 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
             Rays = rows.Where(r => r.Ray != null).Select(r => r.Ray!).Take(s.MaxStoredRays).ToList(),
             LastMatrix = lastG, LastLayout = lastLayout, ForwardSolver = solverName, Mesh = _mesh
         };
+    }
+
+    /// <summary>
+    /// The exact resolution diagonal and standard deviations on the system of the last iteration, the hypocentres
+    /// separated, mapped to the nodes (each node takes the values of its cell); null when not asked for or not
+    /// possible (parameter lattice, double differences, too many unknowns), with the reason in the log.
+    /// </summary>
+    private (FormalResolutionMaps? P, FormalResolutionMaps? S) Formal(CsrMatrix? g, MatrixLayout? l, ObservationSet data,
+        IProgress<(double, string)>? progress, CancellationToken ct)
+    {
+        if (!Settings.FormalResolution.Enabled || g == null || l == null) return (null, null);
+        if (l.ColumnOfNode == null) { log?.Invoke("Formal resolution: not computed on a parameter lattice."); return (null, null); }
+        try
+        {
+            bool IsData(int r) => r < l.DataRows || (l.DifferentialFirstRow >= 0 && r >= l.DifferentialFirstRow && r < l.DifferentialFirstRow + l.DifferentialRows);
+            var groups = l.HypoOffset < 0 ? [] : Enumerable.Range(0, data.Events.Count).Select(e => Enumerable.Range(l.HypoOffset + 4 * e, 4).ToArray()).ToList();
+            var colOf = l.ColumnOfNode;
+            var places = new ColumnPlace?[g.ColumnCount];
+            if (l.VelocityPOffset >= 0) FormalResolution.AddPlaces(places, Grid, l.VelocityPOffset, 0, i => colOf[i]);
+            if (l.VelocitySOffset >= 0) FormalResolution.AddPlaces(places, Grid, l.VelocitySOffset, 1, i => colOf[i]);
+            var fr = FormalResolution.Compute(g, IsData, groups, Settings.FormalResolution.MaxUnknowns, progress, ct, places);
+            var p = l.VelocityPOffset >= 0 ? FormalResolution.OnNodes(fr, g.ColumnCount, Grid.Count, l.VelocityPOffset, i => colOf[i]) : null;
+            var q = l.VelocitySOffset >= 0 ? FormalResolution.OnNodes(fr, g.ColumnCount, Grid.Count, l.VelocitySOffset, i => colOf[i]) : null;
+            log?.Invoke($"Formal resolution: {fr.Columns.Length} unknowns ({groups.Count} events separated) in {fr.Seconds:0.0} s.");
+            return (p, q);
+        }
+        catch (Exception e) when (e is InvalidOperationException or NotSupportedException)
+        {
+            log?.Invoke(e.Message);
+            return (null, null);
+        }
     }
 
     internal List<RayRow> Forward(ObservationSet data, double[] sP, double[] sS, EikonalOpenCl? gpu, bool keepRays,

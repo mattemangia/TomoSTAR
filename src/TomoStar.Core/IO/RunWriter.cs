@@ -111,6 +111,15 @@ public static class RunWriter
             r.Mesh.Save(Path.Combine(runFolder, "mesh.json"));
             volumes.Add(SaveVolume(runFolder, runName, "CellSize", "km", g, r.Mesh.CellSizeKm(), meta));
         }
+        // Formal resolution: the diagonal, and the standard deviation in % of the unknown (slowness, or Vp/Vs).
+        var sName = settings.Parameterization == VelocityParameterization.VpVpVs ? "VpVs" : "S";
+        foreach (var (tag, f) in new[] { ("P", r.FormalP), (sName, r.FormalS) })
+        {
+            if (f == null) continue;
+            volumes.Add(SaveVolume(runFolder, runName, $"Resolution_{tag}", "", g, f.Resolution, meta));
+            volumes.Add(SaveVolume(runFolder, runName, $"Sigma_{tag}", "%", g, f.Sigma.Select(x => 100 * x).ToArray(), meta));
+            volumes.Add(SaveVolume(runFolder, runName, $"ResolutionLength_{tag}", "km", g, f.LengthKm, meta));
+        }
         WriteSummary(runFolder, new
         {
             Tool = "Travel-time tomography",
@@ -162,6 +171,13 @@ public static class RunWriter
         {
             r.Mesh.Save(Path.Combine(runFolder, "mesh.json"));
             list.Add(SaveVolume(runFolder, runName, "CellSize", "km", r.Grid, r.Mesh.CellSizeKm(), meta));
+        }
+        if (r.Formal != null)
+        {
+            // The standard deviation in % of 1/Q (the unknowns are its fractional changes from the reference).
+            list.Add(SaveVolume(runFolder, runName, "Resolution_Q", "", r.Grid, r.Formal.Resolution, meta));
+            list.Add(SaveVolume(runFolder, runName, "Sigma_Q", "%", r.Grid, r.Formal.Sigma.Select(x => 100 * x).ToArray(), meta));
+            list.Add(SaveVolume(runFolder, runName, "ResolutionLength_Q", "km", r.Grid, r.Formal.LengthKm, meta));
         }
         WriteSummary(runFolder, new
         {

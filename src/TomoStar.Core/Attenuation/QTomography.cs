@@ -65,11 +65,15 @@ public sealed class QTomographySettings
     /// <summary>Unknowns on a rotated, shifted lattice instead of the nodes (see <see cref="ParameterLattice"/>); ignored with the adaptive grid.</summary>
     public LatticeSettings Lattice { get; set; } = new();
 
+    /// <summary>Exact resolution diagonal and standard deviations of 1/Q on the final system (<see cref="Tomography.FormalResolution"/>).</summary>
+    public FormalResolutionSettings FormalResolution { get; set; } = new();
+
     public QTomographySettings Clone()
     {
         var c = (QTomographySettings)MemberwiseClone();
         c.Adaptive = Adaptive.Clone();
         c.Lattice = Lattice.Clone();
+        c.FormalResolution = FormalResolution.Clone();
         return c;
     }
 }
@@ -93,6 +97,9 @@ public sealed class QTomographyResult
 
     /// <summary>The adaptive cells (null on the regular grid).</summary>
     public AdaptiveMesh? Mesh { get; init; }
+
+    /// <summary>Resolution diagonal and standard deviation of the fractional change of 1/Q, when asked for.</summary>
+    public FormalResolutionMaps? Formal { get; init; }
 }
 
 /// <summary>
@@ -157,6 +164,7 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
 
     /// <summary>Sensitivity scales of the last solve (1/Q block, station terms) the regularisation was multiplied by.</summary>
     private (double Model, double Station) _scales = (1, 1);
+    private int _dataRows;
 
     /// <summary>1-D velocities outside the grid when outside data are used; null: layer mean of the model.</summary>
     public VelocityModel1D? Background { get; init; }
@@ -326,6 +334,7 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
             }
             b.AddRow(cols.ToArray(), vals.ToArray(), pr.StartResidual[r.Arrival], 1 / a.Sigma);
         }
+        _dataRows = b.RowCount;
         // Damping and smoothing are relative to the typical weighted sensitivity of a data row to a
         // parameter of their block: a node's entry is (time in the node) × q₀ / σ, a station term's 1 / σ,
         // so absolute weights would regularise a high-Q₀ or noisy data set far more than a low-Q₀ one,
@@ -433,8 +442,27 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
             for (var k = 0; k < r.Nodes.Length; k++) dws[r.Nodes[k]] += r.Length[k];
         log?.Invoke($"Q tomography: {used} t* used, {rejected} rejected on the fitted model, RMS {pr.RmsBefore * 1000:0.0} → {Rms(data) * 1000:0.0} ms, LSQR {sol.Iterations} it. ({sol.StopReason}); " +
                      $"regularisation × {_scales.Model:0.###} (1/Q){(s.StationTerms ? $", × {_scales.Station:0.#} (station terms)" : "")}, the typical weighted sensitivity of a t* to each parameter.");
+        FormalResolutionMaps? formal = null;
+        if (s.FormalResolution.Enabled)
+        {
+            if (pr.Lattice != null) log?.Invoke("Q tomography: the formal resolution is not computed on a parameter lattice.");
+            else
+                try
+                {
+                    var dataRows = _dataRows;
+                    var mesh = pr.Mesh;
+                    var places = new ColumnPlace?[g.ColumnCount];
+                    FormalResolution.AddPlaces(places, grid, 0, 0, i => mesh?.LeafOfNode[i] ?? i);
+                    var fr = FormalResolution.Compute(g, r => r < dataRows, [], s.FormalResolution.MaxUnknowns, progress, ct, places);
+                    formal = FormalResolution.OnNodes(fr, g.ColumnCount, n, 0, i => mesh?.LeafOfNode[i] ?? i);
+                    log?.Invoke($"Q tomography: formal resolution of {fr.Columns.Length} unknowns in {fr.Seconds:0.0} s; " +
+                                $"median diagonal {Median(fr.Diagonal.Take(mesh?.CellCount ?? n)):0.000}, median resolution length {Median(fr.LengthKm.Take(mesh?.CellCount ?? n)):0.0} km.");
+                }
+                catch (Exception e) when (e is InvalidOperationException or NotSupportedException) { log?.Invoke(e.Message); }
+        }
         return new QTomographyResult
         {
+            Formal = formal,
             Grid = grid, Q = q.Select(x => 1 / x).ToArray(), Dws = dws, Data = data, RmsBefore = pr.RmsBefore, RmsAfter = Rms(data),
             Lsqr = sol, LsqrHistory = history, Rays = pr.Rows.Where(r => r.Ray != null).Select(r => r.Ray!).ToList(),
             StationTerms = terms, Matrix = g, ReferenceQ = 1 / pr.Q0, Mesh = pr.Mesh
@@ -477,6 +505,12 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
                 q.Select(x => 1 / x).ToArray()));
         }
         return points;
+    }
+
+    private static double Median(IEnumerable<double> v)
+    {
+        var a = v.OrderBy(x => x).ToArray();
+        return a.Length == 0 ? double.NaN : a[a.Length / 2];
     }
 
     private static double Rms(ObservationSet d)
