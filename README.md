@@ -3,7 +3,7 @@
 **Seismic Travel-time and Attenuation tomogRaphy from the command line**
 
 Matteo Mangiagalli - 2026
-m.mangiagalli@campus.uniurb.it
+m.mangiagalli@campus.uniurb.it - ORCID [0009-0003-2031-8729](https://orcid.org/0009-0003-2031-8729)
 Università degli Studi di Urbino - Carlo Bo
 
 TomoSTAR is a standalone, cross-platform (Linux, macOS, Windows) command-line program for local and
@@ -752,7 +752,7 @@ too (`tomostar model1d --list` gives the DOIs).
 ## License
 
 TomoSTAR is released under the [Apache License 2.0](LICENSE). Copyright 2026 Matteo Mangiagalli,
-Universita degli Studi di Urbino Carlo Bo; see [NOTICE](NOTICE). The third-party libraries it uses
+Università degli Studi di Urbino Carlo Bo; see [NOTICE](NOTICE). The third-party libraries it uses
 and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## References
