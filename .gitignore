@@ -11,3 +11,6 @@ TestResults/
 /examples/norcia2016/out/
 /validation/work/
 __pycache__/
+
+# IDE assistant configuration
+.junie/

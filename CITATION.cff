@@ -4,20 +4,26 @@ title: "TomoSTAR: seismic travel-time and attenuation tomography from the comman
 abstract: >-
   A standalone command-line program for local earthquake tomography: automatic picking,
   hypocentre relocation, minimum 1-D models, Vp, Vs and Vp/Vs travel-time tomography on regular or
-  adaptive grids with fast-marching rays, Q tomography from t*, L-curves and resolution tests, with
-  SIMD and OpenCL kernels, scriptable pipelines and file exchange with QUIVER.
+  adaptive octree grids with fast-marching rays, Q tomography from t*, L-curves, resolution tests and
+  the exact resolution matrix, standard deviations and resolution lengths on adaptive cells, with SIMD,
+  OpenCL and MPI, scriptable pipelines and file exchange with QUIVER.
 authors:
   - family-names: Mangiagalli
     given-names: Matteo
-    affiliation: "Universita degli Studi di Urbino Carlo Bo"
+    affiliation: "Università degli Studi di Urbino Carlo Bo"
+    orcid: "https://orcid.org/0009-0003-2031-8729"
 repository-code: "https://github.com/mattemangia/TomoSTAR"
 license: Apache-2.0
 version: 1.0.0
-date-released: 2026-09-30
+date-released: 2026-10-06
 keywords:
   - seismic tomography
+  - local earthquake tomography
   - attenuation tomography
   - t*
+  - adaptive parameterisation
+  - octree
+  - resolution matrix
   - fast marching method
   - LSQR
   - OpenCL
