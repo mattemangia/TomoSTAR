@@ -678,7 +678,7 @@ examples/               synthetic/ (complete pipeline)
 
 If you use TomoSTAR, please cite it through its DOI,
 [10.5281/zenodo.23188347](https://doi.org/10.5281/zenodo.23188347) (all versions; each release has
-its own DOI on that page, 10.5281/zenodo.23188348 for 1.0.0), see `CITATION.cff`, and the papers of the methods you use
+its own DOI on that page: 10.5281/zenodo.23263348 for 1.1.0, 10.5281/zenodo.23188348 for 1.0.0), see `CITATION.cff`, and the papers of the methods you use
 (see [References](#references)); when a published 1-D model of the library is used, cite its paper
 too (`tomostar model1d --list` gives the DOIs).
 
