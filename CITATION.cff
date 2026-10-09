@@ -15,8 +15,8 @@ authors:
 doi: 10.5281/zenodo.23188347
 repository-code: "https://github.com/mattemangia/TomoSTAR"
 license: Apache-2.0
-version: 1.0.0
-date-released: 2026-10-06
+version: 1.1.0
+date-released: 2026-10-09
 keywords:
   - seismic tomography
   - local earthquake tomography
