@@ -101,6 +101,76 @@ public class QShallowLayerTests
             $"mean |station term| {1000 * r.StationTerms.Average(Math.Abs):0.0} ms for {1000 * centred.Average(Math.Abs):0.0} ms of site offsets");
     }
 
+    /// <summary>
+    /// Q 200 with a low-Q sphere (Q 80, radius 9 km) under the 36 stations, 60 events, t* from straight rays with 2 ms
+    /// errors and 8 ms more noise added (σ 8 ms), and weak regularisation: the linear unknowns (fractional change of 1/Q)
+    /// let the solve take 1/Q through zero at many nodes, which the bounds turn into Q = QMax next to low values. Solved
+    /// for ln(1/Q) by Gauss–Newton, 1/Q stays positive, far fewer nodes sit on a bound and the model is closer to the truth.
+    /// </summary>
+    [Fact]
+    public void LogParameterisationKeepsQOffTheBounds()
+    {
+        var grid = new SphericalGrid(Grid);
+        var vp = Enumerable.Repeat(6.0, grid.Count).ToArray();
+        var vs = Enumerable.Repeat(3.46, grid.Count).ToArray();
+        var centre = GeoMath.ToCartesian(13.3, 42.75, 10);
+        var qTrue = Enumerable.Range(0, grid.Count).Select(i =>
+        {
+            var (x, y, z) = grid.Decompose(i);
+            return (grid.Cartesian(x, y, z) - centre).Length < 9 ? 1 / 80.0 : 1 / 200.0;
+        }).ToArray();
+        // The same noisy data for both solves (each run marks rejections on its own copy).
+        ObservationSet Noisy()
+        {
+            var data = new ObservationSet();
+            var n = 0;
+            for (var i = 0; i < 6; i++)
+            for (var j = 0; j < 6; j++)
+                data.Stations.Add(new StationState { Id = $"XX.S{n++:00}", Lon = 13.03 + 0.105 * i, Lat = 42.53 + 0.088 * j, DepthKm = -0.3 });
+            var rnd = new Random(8);
+            double G() => Math.Sqrt(-2 * Math.Log(1 - rnd.NextDouble())) * Math.Cos(2 * Math.PI * rnd.NextDouble());
+            var field = qTrue.Select((q, i) => q / vp[i]).ToArray();
+            for (var e = 0; e < 60; e++)
+            {
+                var ev = new EventState { Id = $"e{e}", Lon = 13.03 + 0.54 * rnd.NextDouble(), Lat = 42.53 + 0.44 * rnd.NextDouble(), DepthKm = 2 + 19 * rnd.NextDouble(), Fixed = true };
+                data.Events.Add(ev);
+                for (var s = 0; s < data.Stations.Count; s++)
+                {
+                    var st = data.Stations[s];
+                    var t = RayTracing.Time(RayTracing.Kernel(grid, RayTracing.Straight(ev.Lon, ev.Lat, ev.DepthKm, st.Lon, st.Lat, st.DepthKm, 0.5)), field);
+                    data.Arrivals.Add(new Observation { Event = e, Station = s, Phase = Phase.P, Time = t + 0.002 * G(), Sigma = 0.002 });
+                }
+            }
+            var noise = new Random(21);
+            double N() => Math.Sqrt(-2 * Math.Log(1 - noise.NextDouble())) * Math.Cos(2 * Math.PI * noise.NextDouble());
+            foreach (var a in data.Arrivals) { a.Time += 0.008 * N(); a.Sigma = 0.008; }
+            return data;
+        }
+        var dir = Path.Combine(Path.GetTempPath(), $"quiver_{Guid.NewGuid():N}");
+        try
+        {
+            QTomographyResult Solve(bool log) => new QTomography(grid, new QTomographySettings
+            {
+                RayMethod = RayMethod.Straight, UseOpenCl = false, Damping = 0.1, Smoothing = 0.3, StationTerms = true, LogParameterisation = log
+            }, dir).Run(Noisy(), vp, vs);
+            var linear = Solve(false);
+            var logarithmic = Solve(true);
+            var bounds = new QTomographySettings();
+            var sampled = Enumerable.Range(0, grid.Count).Where(i => linear.Dws[i] > 0).ToList();
+            int AtBounds(QTomographyResult r) => sampled.Count(i => r.Q[i] >= 0.999 * bounds.QMax || r.Q[i] <= 1.001 * bounds.QMin);
+            double Err(QTomographyResult r) => sampled.Average(i => Math.Abs(Math.Log(qTrue[i] * r.Q[i])));
+            var summary = $"nodes at a Q bound: linear {AtBounds(linear)}, logarithmic {AtBounds(logarithmic)} of {sampled.Count}; " +
+                          $"mean |ln Q/Q_true|: linear {Err(linear):0.000}, logarithmic {Err(logarithmic):0.000}";
+            Assert.True(AtBounds(linear) > 0, "the case must provoke the linear failure; " + summary);
+            Assert.True(5 * AtBounds(logarithmic) < AtBounds(linear), summary);
+            Assert.True(Err(logarithmic) < Err(linear), summary);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
     private static double Correlation(double[] x, double[] y)
     {
         double mx = x.Average(), my = y.Average();

@@ -45,6 +45,19 @@ public sealed class QTomographySettings
     /// <summary>Damping of the station terms, relative to their sensitivity (1 / σ) as <see cref="Damping"/> is to the nodes'.</summary>
     public double DampingStation { get; set; } = 3;
     public int LsqrIterations { get; set; } = 400;
+
+    /// <summary>
+    /// Unknowns are ln(q / q₀) instead of the fractional change q / q₀ − 1 (q = 1/Q), solved by Gauss–Newton iterations
+    /// (<see cref="NonlinearIterations"/>). q stays positive whatever the data: the linear unknowns let a noisy or weakly
+    /// damped solve take q through zero (an amplifying medium), which the bounds then turned into Q = <see cref="QMax"/>
+    /// next to nodes at <see cref="QMin"/>. Small changes mean the same in both (ln(1 + x) ≈ x), so damping and smoothing
+    /// keep their scale.
+    /// </summary>
+    public bool LogParameterisation { get; set; } = true;
+
+    /// <summary>Gauss–Newton iterations of the logarithmic parameterisation (stopped earlier when the model settles).</summary>
+    public int NonlinearIterations { get; set; } = 20;
+
     public double QMin { get; set; } = 10;
     public double QMax { get; set; } = 5000;
     public double OutlierMads { get; set; } = 4;
@@ -98,7 +111,7 @@ public sealed class QTomographyResult
     /// <summary>The adaptive cells (null on the regular grid).</summary>
     public AdaptiveMesh? Mesh { get; init; }
 
-    /// <summary>Resolution diagonal and standard deviation of the fractional change of 1/Q, when asked for.</summary>
+    /// <summary>Resolution diagonal and standard deviation of the unknowns (ln(q/q₀), or the fractional change of 1/Q), when asked for.</summary>
     public FormalResolutionMaps? Formal { get; init; }
 }
 
@@ -106,8 +119,9 @@ public sealed class QTomographyResult
 /// Attenuation tomography from t*. Along a ray, t* = ∫ ds / (v Q) = Σₙ Lₙ sₙ qₙ with q = 1/Q on the
 /// nodes, Lₙ the ray's trilinear kernel and sₙ the slowness of the velocity model the rays were
 /// traced in, a linear problem in q once the velocity model is fixed (e.g. Rietbrock 2001, J. Geophys.
-/// Res. 106(B3), 4141-4154; Eberhart-Phillips &amp; Chadwick 2002). Unknowns are fractional changes of q
-/// relative to 1/Q₀; damping and smoothing are scaled by the typical sensitivity of the data to them
+/// Res. 106(B3), 4141-4154; Eberhart-Phillips &amp; Chadwick 2002). Unknowns are m = ln(q/q₀), solved by
+/// Gauss–Newton so that q stays positive (or, as an option, the fractional changes q/q₀ − 1, a linear
+/// problem); damping and smoothing are scaled by the typical sensitivity of the data to them
 /// (see <see cref="QTomographySettings.Damping"/>), and optional station terms, damped the same way,
 /// absorb near-surface attenuation under each site.
 /// </summary>
@@ -299,7 +313,49 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
     private (CsrMatrix G, LsqrResult Sol, List<double> History, double[] Q, double[] Terms) Solve(
         Prepared pr, ObservationSet data, double damping, double smoothing, CancellationToken ct, double[]? weightModel = null)
     {
+        if (!settings.LogParameterisation) return SolveOnce(pr, data, damping, smoothing, ct, weightModel, null, null, null).Pass;
+        // Gauss–Newton on m = ln(q/q₀), in the "jumping" form: every iteration solves for the whole model with the kernel
+        // linearised at the previous one, so the damping and smoothing rows act on m itself, as in the linear solve. The
+        // regularisation keeps the scale of the first iteration (the kernel at q₀), whatever q becomes.
+        double[]? m = null;
+        (double Model, double Station)? scales = null;
+        (CsrMatrix G, LsqrResult Sol, List<double> History, double[] Q, double[] Terms) pass = default;
+        double[]? x = null;
+        var it = 0;
+        var change = double.NaN;
+        for (; it < Math.Max(1, settings.NonlinearIterations); it++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var (next, mNodes) = SolveOnce(pr, data, damping, smoothing, ct, weightModel, m, scales, x);
+            pass = next;
+            x = next.Sol.Solution;
+            scales ??= _scales;
+            change = m == null ? double.PositiveInfinity : Math.Sqrt(mNodes.Zip(m, (a, b) => (a - b) * (a - b)).Average());
+            m = mNodes;
+            if (change < 1e-3) { it++; break; }
+        }
+        _lastIterations = (it, change);
+        return pass;
+    }
+
+    /// <summary>Gauss–Newton iterations and the RMS change of ln q at the last one, of the last solve (logarithmic parameterisation).</summary>
+    private (int Iterations, double Change) _lastIterations;
+
+    /// <summary>
+    /// One least-squares solve. Linear (<paramref name="mOld"/> null without the logarithmic parameterisation): the
+    /// unknowns are q/q₀ − 1. Logarithmic: the unknowns are m = ln(q/q₀), the kernel is linearised at
+    /// <paramref name="mOld"/> (null: q₀ everywhere) and the data are t* − t*(m_old) + J·m_old. LSQR solves for the change from
+    /// <paramref name="xOld"/>, the previous solution (unknowns and station terms), so that its iteration limit, which acts as a
+    /// regularisation, bears on the update and not on the whole model at every Gauss–Newton step. Returns the pass and m on the nodes.
+    /// </summary>
+    private ((CsrMatrix G, LsqrResult Sol, List<double> History, double[] Q, double[] Terms) Pass, double[] MNodes) SolveOnce(
+        Prepared pr, ObservationSet data, double damping, double smoothing, CancellationToken ct, double[]? weightModel,
+        double[]? mOld, (double Model, double Station)? fixedScales, double[]? xOld)
+    {
         var s = settings;
+        var logParam = s.LogParameterisation;
+        double mLow = Math.Log(1 / (s.QMax * pr.Q0)), mHigh = Math.Log(1 / (s.QMin * pr.Q0));
+        var qOld = mOld?.Select(x => pr.Q0 * Math.Exp(Math.Clamp(x, mLow, mHigh))).ToArray();
         var mesh = pr.Mesh;
         var lattice = pr.Lattice;
         var n = mesh?.CellCount ?? lattice?.Count ?? grid.Count;
@@ -314,7 +370,14 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         {
             var a = data.Arrivals[r.Arrival];
             if (a.Rejected) continue;
-            var nodeVals = r.Nodes.Select((nd, k) => (double)r.Length[k] * pr.Slowness[nd] * pr.Q0).ToArray();
+            // ∂t*/∂(parameter) at each node: L s q₀ for the linear unknowns and at the start, L s q at the current model.
+            var nodeVals = r.Nodes.Select((nd, k) => (double)r.Length[k] * pr.Slowness[nd] * (qOld?[nd] ?? pr.Q0)).ToArray();
+            var dataRhs = pr.StartResidual[r.Arrival];
+            if (qOld != null)
+            {
+                dataRhs = a.Time - Predict(r, pr.Slowness, qOld, pr.Q0);
+                for (var k = 0; k < nodeVals.Length; k++) dataRhs += nodeVals[k] * mOld![r.Nodes[k]];
+            }
             if (mesh != null) mesh.MergeRow(r.Nodes, nodeVals, 0, cols, vals);
             else if (lattice != null)
             {
@@ -332,7 +395,7 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
                 if (cols[k] < n) { sumModel += w * w; countModel++; }
                 else { sumStation += w * w; countStation++; }
             }
-            b.AddRow(cols.ToArray(), vals.ToArray(), pr.StartResidual[r.Arrival], 1 / a.Sigma);
+            b.AddRow(cols.ToArray(), vals.ToArray(), dataRhs, 1 / a.Sigma);
         }
         _dataRows = b.RowCount;
         // Damping and smoothing are relative to the typical weighted sensitivity of a data row to a
@@ -342,6 +405,7 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         // shallow attenuation). Scaled, a unit of regularisation costs as much as one row of data.
         var scaleModel = countModel > 0 ? Math.Sqrt(sumModel / countModel) : 1;
         var scaleStation = countStation > 0 ? Math.Sqrt(sumStation / countStation) : 1;
+        if (fixedScales is { } fixedS) (scaleModel, scaleStation) = fixedS;
         _scales = (scaleModel, scaleStation);
         if (lattice != null)
         {
@@ -365,6 +429,12 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
             b.AddRow(zc, Enumerable.Repeat(1.0, zc.Length).ToArray(), 0, 10 * scaleStation);
         }
         var (g, rhs) = b.Build();
+        if (xOld != null)
+        {
+            var gx = new double[rhs.Length];
+            g.MultiplyInto(xOld, gx);
+            for (var i = 0; i < rhs.Length; i++) rhs[i] -= gx[i];
+        }
         var history = new List<double>();
         LsqrResult sol;
         if (s.UseOpenCl && g.NonZeroCount >= LsqrOpenCl.MinNonZerosForDevice)
@@ -373,16 +443,31 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
             sol = LsqrOpenCl.SolveOrCpu(device, g, rhs, 0, s.LsqrIterations, 1e-6, 1e-6, 1e8, ct, (_, rn) => history.Add(rn), out _, log);
         }
         else sol = Lsqr.Solve(g, rhs, 0, s.LsqrIterations, 1e-6, 1e-6, 1e8, ct, (_, rn) => history.Add(rn));
+        if (xOld != null) sol = sol with { Solution = sol.Solution.Select((d, i) => d + xOld[i]).ToArray() };
         var q = new double[grid.Count];
+        var mNodes = new double[grid.Count];
         var onNodes = lattice?.Prolong(sol.Solution);
-        for (var i = 0; i < q.Length; i++) q[i] = Math.Clamp(pr.Q0 * (1 + (onNodes?[i] ?? sol.Solution[mesh?.LeafOfNode[i] ?? i])), 1 / s.QMax, 1 / s.QMin);
+        for (var i = 0; i < q.Length; i++)
+        {
+            var x = onNodes?[i] ?? sol.Solution[mesh?.LeafOfNode[i] ?? i];
+            if (logParam)
+            {
+                mNodes[i] = Math.Clamp(x, mLow, mHigh);
+                q[i] = pr.Q0 * Math.Exp(mNodes[i]);
+            }
+            else
+            {
+                q[i] = Math.Clamp(pr.Q0 * (1 + x), 1 / s.QMax, 1 / s.QMin);
+                mNodes[i] = Math.Log(q[i] / pr.Q0);
+            }
+        }
         var terms = offSt >= 0 ? sol.Solution.Skip(offSt).Take(data.Stations.Count).ToArray() : [];
         foreach (var r in pr.Rows)
         {
             var a = data.Arrivals[r.Arrival];
             a.Residual = a.Time - Predict(r, pr.Slowness, q, pr.Q0) - (terms.Length > 0 ? terms[a.Station] : 0);
         }
-        return (g, sol, history, q, terms);
+        return ((g, sol, history, q, terms), mNodes);
     }
 
     /// <summary>
@@ -426,8 +511,8 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         if (s.SmoothingMethod is SmoothingMethod.TotalVariation or SmoothingMethod.EdgePreserving && pr.Mesh == null && pr.Lattice == null)
             for (var k = 0; k < s.ReweightingPasses; k++)
             {
-                // Reweighted least squares: the roughness weights of the fractional change of q of the last solve.
-                var previous = pass.Q.Select(q => q / pr.Q0 - 1).ToArray();
+                // Reweighted least squares: the roughness weights of the unknowns (ln(q/q₀) or q/q₀ − 1) of the last solve.
+                var previous = pass.Q.Select(q => s.LogParameterisation ? Math.Log(q / pr.Q0) : q / pr.Q0 - 1).ToArray();
                 progress?.Report((0.85, $"Q tomography: reweighted solve {k + 1}/{s.ReweightingPasses}"));
                 pass = Solve(pr, data, s.Damping, s.Smoothing, ct, previous);
             }
@@ -440,6 +525,9 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
         var dws = new double[n];
         foreach (var r in pr.Rows.Where(r => !data.Arrivals[r.Arrival].Rejected))
             for (var k = 0; k < r.Nodes.Length; k++) dws[r.Nodes[k]] += r.Length[k];
+        if (s.LogParameterisation)
+            log?.Invoke($"Q tomography: ln(Q₀/Q) by Gauss–Newton, {_lastIterations.Iterations} iterations (RMS change of ln Q at the last {_lastIterations.Change:0.####}).");
+        ReportBounds(q, dws, s, log);
         log?.Invoke($"Q tomography: {used} t* used, {rejected} rejected on the fitted model, RMS {pr.RmsBefore * 1000:0.0} → {Rms(data) * 1000:0.0} ms, LSQR {sol.Iterations} it. ({sol.StopReason}); " +
                      $"regularisation × {_scales.Model:0.###} (1/Q){(s.StationTerms ? $", × {_scales.Station:0.#} (station terms)" : "")}, the typical weighted sensitivity of a t* to each parameter.");
         FormalResolutionMaps? formal = null;
@@ -476,8 +564,8 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
     /// <summary>
     /// The Q problem solved for every (damping, smoothing) pair with the rays traced once: the
     /// material of L-curves (Hansen 1992) and of data-variance/model-variance trade-offs
-    /// (Eberhart-Phillips 1986). The problem is linear in q, so each point is the complete inversion
-    /// for its pair, not only a first step. Outliers are rejected once, on a fit with the current
+    /// (Eberhart-Phillips 1986). Each point is the complete inversion for its pair (linear in q, or
+    /// the Gauss–Newton iterations in ln q), not only a first step. Outliers are rejected once, on a fit with the current
     /// settings, and the same data enter every point, so the points differ only in regularisation.
     /// </summary>
     public List<QTradeOffPoint> TradeOff(ObservationSet data, double[] vp, double[] vs, IReadOnlyList<(double Damping, double Smoothing)> pairs,
@@ -505,6 +593,26 @@ public sealed class QTomography(SphericalGrid grid, QTomographySettings settings
                 q.Select(x => 1 / x).ToArray()));
         }
         return points;
+    }
+
+    /// <summary>
+    /// Warns when sampled nodes sit on the Q bounds: a bound reached is a value the data did not give (a model held by the
+    /// bound), to be masked or read as "beyond".
+    /// </summary>
+    internal static void ReportBounds(double[] q, double[] dws, QTomographySettings s, Action<string>? log)
+    {
+        int sampled = 0, low = 0, high = 0;
+        for (var i = 0; i < q.Length; i++)
+        {
+            if (!(dws[i] > 0)) continue;
+            sampled++;
+            var value = 1 / q[i];
+            if (value >= 0.999 * s.QMax) high++;
+            else if (value <= 1.001 * s.QMin) low++;
+        }
+        if (sampled > 0 && low + high > 0)
+            log?.Invoke($"[WARNING] Q tomography: {high} sampled nodes at Q = {s.QMax:0} and {low} at Q = {s.QMin:0} " +
+                        $"({100.0 * (low + high) / sampled:0.#} % of {sampled}): the bounds, not the data, hold them; raise the damping or mask them.");
     }
 
     private static double Median(IEnumerable<double> v)

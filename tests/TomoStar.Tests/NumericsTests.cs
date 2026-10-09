@@ -4,6 +4,7 @@
 using TomoStar.Core.Forward;
 using TomoStar.Core.Geo;
 using TomoStar.Core.Numerics;
+using TomoStar.Core.Tomography;
 
 namespace TomoStar.Tests;
 
@@ -119,5 +120,19 @@ public class NumericsTests
         foreach (var x in w) sum += x;
         Assert.Equal(1, sum, 12);
         Assert.Equal(2 * 10.37 - 40.61 + 0.73, g.Interpolate(field, 10.37, 40.61, 7.3), 9);
+    }
+
+    /// <summary>
+    /// The L-curve corner is the point farthest from the chord of the scaled log-log curve, and does not move when the
+    /// residual norms of the flat branch change in their third decimal (the finite-difference curvature it replaced did).
+    /// </summary>
+    [Fact]
+    public void LCurveCornerIsStableOnTheBranches()
+    {
+        // Damping ascending: model norm falls steeply, then the residual grows with little change of the model.
+        (double, double)[] curve = [(10.00, 100), (10.01, 30), (10.03, 9), (10.1, 3), (15, 2.5), (30, 2.2), (60, 2)];
+        Assert.Equal(3, TravelTimeTomography.Corner(curve));
+        var perturbed = curve.Select((p, i) => i < 3 ? (p.Item1 * (1 + 0.0005 * (i % 2 == 0 ? 1 : -1)), p.Item2) : p).ToArray();
+        Assert.Equal(3, TravelTimeTomography.Corner(perturbed));
     }
 }
