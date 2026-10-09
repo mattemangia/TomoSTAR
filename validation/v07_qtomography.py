@@ -10,7 +10,7 @@ script recomputes the sum from the stored rays (rays.qray, polylines of 48 point
 and Vp volumes and the station terms, with its own trilinear weights, and compares it with the t*
 TomoSTAR predicts (observed t* minus the final residual). It checks the matrix rows of the Q
 inversion and the consistency of the written model, residuals and station terms. The linear solver
-is the LSQR checked in v02, and the t* measurements are checked against AttenTIon in v06.
+of each Gauss-Newton step (unknowns ln(q/q0)) is the LSQR checked in v02, and the t* measurements are checked against AttenTIon in v06.
 Metric: |t*_TomoSTAR - t*_recomputed| / t*_TomoSTAR; its 95th percentile must be below 5 %.
 
 Inputs: TOMOSTAR_NORCIA_OUT, the out folder of examples/norcia2016/norcia.tomo.

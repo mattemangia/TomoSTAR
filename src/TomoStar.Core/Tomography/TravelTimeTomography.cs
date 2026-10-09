@@ -641,22 +641,30 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
     }
 
     /// <summary>
-    /// Index of the L-curve corner: the point of maximum curvature of (log ‖r‖, log ‖x‖), the
-    /// curvature of the parametric curve estimated by finite differences along the point order.
+    /// Index of the L-curve corner: the point farthest from the chord between the two ends of (log ‖r‖, log ‖x‖), each axis
+    /// scaled to [0, 1] (the "triangle" or knee criterion). The curvature by finite differences that this replaces was
+    /// decided by rounding on the flat and vertical branches, where neighbouring points barely differ (on a Q trade-off it
+    /// moved the choice from damping 10 to 0.1 for a change in the third decimal of the residual). Of points equally far,
+    /// the most regularised is taken.
     /// </summary>
     public static int Corner(IReadOnlyList<(double Residual, double Model)> curve)
     {
         if (curve.Count < 3) return curve.Count - 1;
         var x = curve.Select(c => Math.Log(Math.Max(1e-300, c.Residual))).ToArray();
         var y = curve.Select(c => Math.Log(Math.Max(1e-300, c.Model))).ToArray();
-        var best = 1;
-        var bestK = double.NegativeInfinity;
-        for (var i = 1; i < curve.Count - 1; i++)
+        double x0 = x.Min(), y0 = y.Min(), sx = x.Max() - x0, sy = y.Max() - y0;
+        if (!(sx > 0)) sx = 1;
+        if (!(sy > 0)) sy = 1;
+        for (var i = 0; i < x.Length; i++) { x[i] = (x[i] - x0) / sx; y[i] = (y[i] - y0) / sy; }
+        double ax = x[0], ay = y[0], bx = x[^1], by = y[^1];
+        var chord = Math.Sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+        if (!(chord > 0)) return curve.Count - 1;
+        var best = 0;
+        var bestD = double.NegativeInfinity;
+        for (var i = 0; i < x.Length; i++)
         {
-            double dx = (x[i + 1] - x[i - 1]) / 2, dy = (y[i + 1] - y[i - 1]) / 2;
-            double ddx = x[i + 1] - 2 * x[i] + x[i - 1], ddy = y[i + 1] - 2 * y[i] + y[i - 1];
-            var k = Math.Abs(dx * ddy - dy * ddx) / Math.Pow(dx * dx + dy * dy, 1.5);
-            if (double.IsFinite(k) && k > bestK) { bestK = k; best = i; }
+            var d = Math.Abs((bx - ax) * (ay - y[i]) - (ax - x[i]) * (by - ay)) / chord;
+            if (double.IsFinite(d) && d >= bestD - 1e-12) { bestD = d; best = i; }
         }
         return best;
     }

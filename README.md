@@ -272,7 +272,7 @@ file are relative to the file.
 | `MinPhasesPerEvent`, `AutomaticPicks` | data selection |
 | `UseOpenCl`, `Threads`, `OutputFormats` | computing and output |
 | `Tomography` | velocity inversion: `Iterations`, `InvertP`, `InvertS`, `Parameterization` (`VpVs` or `VpVpVs`), `JointHypocentres`, `StationCorrections`, `DampingVelocity`, `Smoothing`, `SRegularisationFactor`, `SmoothingMethod` (`Laplacian`, `Gradient`, `TotalVariation`, `EdgePreserving`), `VerticalSmoothingWeight`, `SmoothingScale`, `RayMethod`, `ForwardRefinement`, `MaxSlownessStep`, `MaxStepHalvings`, outlier rules, velocity bounds, `StartVpVs` (`FromModel`, `FromData` from the Wadati diagram, `Constant`), and the subsections `Adaptive`, `Lattice` and `DoubleDifference` |
-| `Attenuation` | Q inversion: `Phase`, `Q0`, `EstimateQ0`, `Damping`, `Smoothing`, `StationTerms`, `DampingStation`, `SmoothingMethod`, `Adaptive`, `Lattice`, Q bounds. Damping and smoothing are relative to the typical sensitivity of the t* to each parameter, so the same values hold whatever the background Q and the t* errors |
+| `Attenuation` | Q inversion: `Phase`, `Q0`, `EstimateQ0`, `Damping`, `Smoothing`, `StationTerms`, `DampingStation`, `SmoothingMethod`, `Adaptive`, `Lattice`, `LogParameterisation`, `NonlinearIterations`, Q bounds. Damping and smoothing are relative to the typical sensitivity of the t* to each parameter, so the same values hold whatever the background Q and the t* errors |
 | `Locator` | absolute location: grid search, Geiger iterations and damping, outliers, `FixDepth` |
 | `Relocation` | `Method`: `absolute` or `dd` |
 | `Picker` | filter band, STA and LTA lengths, trigger threshold, search window, `PickS`, `MinSnr` |
@@ -377,9 +377,12 @@ inverted with the absolute times, with the weighting schedule of tomoDD.
 
 **Regularisation choice.** The L-curve (Hansen 1992) and the data-variance/model-variance trade-off
 (Eberhart-Phillips 1986) are computed from the first linearised step for every damping and smoothing
-pair (for Q, from the complete linear inversion). For each smoothing the damping at the point of
-maximum curvature of log residual norm against log model norm is found; the corners of the
-different smoothings form a second curve (misfit against roughness) whose corner gives the smoothing.
+pair (for Q, from the complete inversion). For each smoothing the damping at the corner of log residual
+norm against log model norm is found: the point farthest from the chord between the two ends of the
+curve, each axis scaled to [0, 1] (of equally distant points the more regularised). The maximum of the
+curvature by finite differences, used before, was decided by rounding on the flat and vertical
+branches, where neighbouring points barely differ. The corners of the different smoothings form a
+second curve (misfit against roughness) whose corner gives the smoothing.
 
 **Resolution tests.** A checkerboard (smooth sine cells), Gaussian spikes or tabular bodies of any
 strike and dip (Spakman and Nolet 1988; Humphreys and Clayton 1988) are added to the model, synthetic
@@ -409,10 +412,15 @@ single-taper method searches one corner frequency per event and fits ln Omega0 a
 (Eberhart-Phillips and Chadwick 2002); the multitaper method (Thomson 1982) inverts the records of an
 event jointly with a shared source level and optional frequency-dependent Q (Stachnik et al. 2004;
 Wei and Wiens 2018). Noise power is removed, the corner search is bounded by the magnitude through a
-stress-drop range, and events whose corner trades off with t\* are flagged. The Q tomography is
-linear in 1/Q along the rays of the velocity model, t\* = sum of L s q (e.g. Rietbrock 2001), with a
-reference Q estimated from the data, optional station terms, and the same regularisation and
-parameterisations as the velocity inversion.
+stress-drop range, and events whose corner trades off with t\* are flagged. Along the rays of the
+velocity model t\* = sum of L s q (e.g. Rietbrock 2001), with a reference Q estimated from the data,
+optional station terms, and the same regularisation and parameterisations as the velocity inversion.
+The unknowns are m = ln(q/q0), solved by Gauss-Newton iterations (up to `NonlinearIterations`, 20,
+until ln q changes by less than 1e-3 RMS; LSQR solves for the change from the previous model), so q
+stays positive. The fractional changes q/q0 - 1 (`LogParameterisation: false`) make the problem linear
+but let a noisy or weakly damped solve take q through zero, an amplifying medium, which the bounds then
+turn into Q = `QMax` next to nodes at `QMin`. For small changes the two are the same, so damping and
+smoothing keep their meaning. The run warns when sampled nodes sit on a Q bound.
 
 ## Performance: SIMD, threads and OpenCL
 
