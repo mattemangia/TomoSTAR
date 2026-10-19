@@ -6,7 +6,8 @@ abstract: >-
   hypocentre relocation, minimum 1-D models, Vp, Vs and Vp/Vs travel-time tomography on regular or
   adaptive octree grids with fast-marching rays, Q tomography from t*, L-curves, resolution tests and
   the exact resolution matrix, standard deviations and resolution lengths on adaptive cells, with SIMD,
-  OpenCL and MPI, scriptable pipelines and file exchange with QUIVER.
+  OpenCL and MPI, scriptable pipelines and file exchange with QUIVER; first-motion focal mechanisms,
+  stress inversion, waveform cross-correlation for double-difference relocation and Coulomb stress change.
 authors:
   - family-names: Mangiagalli
     given-names: Matteo
@@ -15,8 +16,8 @@ authors:
 doi: 10.5281/zenodo.23188347
 repository-code: "https://github.com/mattemangia/TomoSTAR"
 license: Apache-2.0
-version: 1.1.0
-date-released: 2026-10-09
+version: 1.2.0
+date-released: 2026-10-19
 keywords:
   - seismic tomography
   - local earthquake tomography
@@ -29,3 +30,6 @@ keywords:
   - LSQR
   - OpenCL
   - earthquake location
+  - focal mechanisms
+  - stress inversion
+  - Coulomb stress
