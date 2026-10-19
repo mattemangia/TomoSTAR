@@ -1,8 +1,9 @@
 # Third-party software
 
 TomoSTAR is distributed under the Apache License 2.0 (see `LICENSE` and `NOTICE`). It uses the
-following libraries, each under its own permissive licence. No third-party source code is copied
-into this repository; the libraries are fetched from NuGet when the solution is built.
+following libraries, each under its own permissive licence; the libraries are fetched from NuGet when
+the solution is built. Apart from the translation listed under "Translated algorithms", no
+third-party source code is copied into this repository.
 
 ## Run time
 
@@ -16,6 +17,12 @@ into this repository; the libraries are fetched from NuGet when the solution is 
 
 An OpenCL runtime, when present on the machine, is loaded at run time from the system; none is
 distributed with TomoSTAR.
+
+## Translated algorithms
+
+| File | Origin | Licence | Used for |
+|---|---|---|---|
+| `src/TomoStar.Core/Source/OkadaDc3d.cs` | C# translation of the finite-rectangle part of the DC3D subroutine of Y. Okada (1991, revisions to 2002), implementing Okada (1992), Bull. Seismol. Soc. Am. 82(2), 1018-1040, doi:10.1785/BSSA0820021018; Fortran as distributed with okada_wrapper (https://github.com/cutde-org/okada_wrapper) | MIT (okada_wrapper) | Displacement gradients of rectangular dislocations in a half-space, for the Coulomb stress change |
 
 ## Tests only
 
