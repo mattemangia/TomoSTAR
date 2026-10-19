@@ -1,6 +1,6 @@
 # TomoSTAR
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23188347.svg)](https://doi.org/10.5281/zenodo.23188347)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23474344.svg)](https://doi.org/10.5281/zenodo.23474344)
 
 **Seismic Travel-time and Attenuation tomogRaphy from the command line**
 
