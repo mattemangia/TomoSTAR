@@ -16,7 +16,7 @@ public sealed class Arguments
     /// <summary>Options that take no value.</summary>
     public static readonly HashSet<string> Flags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "help", "quiet", "no-opencl", "list", "layered", "only-automatic", "catalog-locations", "save-models", "keep-going",
+        "help", "p-only", "quiet", "no-opencl", "list", "layered", "only-automatic", "catalog-locations", "save-models", "keep-going",
         "with-waveforms", "csv", "vtk", "keep-work", "adaptive", "show", "template", "dry-run", "fix-depth", "straight"
     };
 

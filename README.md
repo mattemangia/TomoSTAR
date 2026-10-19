@@ -39,6 +39,7 @@ the GPU for the eikonal equation and for LSQR.
 - [Configuration](#configuration)
 - [Scripts](#scripts)
 - [Methods](#methods)
+- [Source studies: mechanisms, stress, cross-correlation and Coulomb stress](#source-studies-mechanisms-stress-cross-correlation-and-coulomb-stress)
 - [Performance: SIMD, threads and OpenCL](#performance-simd-threads-and-opencl)
 - [Optional MPI execution on HPC](#optional-mpi-execution-on-hpc)
 - [A real example: the 2016-2017 central Italy sequence](#a-real-example-the-2016-2017-central-italy-sequence)
@@ -422,6 +423,62 @@ but let a noisy or weakly damped solve take q through zero, an amplifying medium
 turn into Q = `QMax` next to nodes at `QMin`. For small changes the two are the same, so damping and
 smoothing keep their meaning. The run warns when sampled nodes sit on a Q bound.
 
+## Source studies: mechanisms, stress, cross-correlation and Coulomb stress
+
+Four commands study the earthquake sources of a data set; their tables are plain CSV.
+
+```bash
+tomostar mechanism mydata --polarities polarities.csv --out runs/mech       # first-motion mechanisms
+tomostar stress runs/mech/mechanisms.csv --quality ABC --out runs/stress \
+         --map 8.3,9.5,0.1,46.5,47.3,0.07                                   # stress tensor, S_Hmax map
+tomostar crosscorr mydata --waveforms wf --out runs/cc --max-separation 3   # differential times
+tomostar relocate mydata --method dd --cc runs/cc/dt_cc.csv --out runs/dd   # ... in the double difference
+tomostar coulomb --source 46.91,8.92,4.5,167,78,-6,4.1,0.7,0.7 --receivers rec.csv \
+         --map 1.5,0.02 --depths 4.5 --receiver 330/90/0 --out runs/cfs     # Coulomb stress change
+tomostar kagan 345/85/-15 167/78/-6                                         # angle between two mechanisms
+```
+
+**First-motion mechanisms** (`mechanism`). The polarity table has the columns `event`, `station`,
+`polarity` (+1 up, -1 down), `azimuth` and `takeoff` (degrees from the downward vertical, as given by
+a location program) and optionally `manual` (0 = automatic, weighted down). The double couple is found
+by a grid search over strike, dip and rake; the acceptable set holds every mechanism whose weighted
+misfit exceeds the best by less than the binomial spread of the expected rate of wrong polarities,
+the preferred mechanism is the member closest to the average of the set, and the RMS rotation
+(Kagan 1991) of the set from it, the station distribution ratio and the azimuthal and takeoff gaps
+give the quality classes A-D of Hardebeck and Shearer (2002). `mechanisms.csv` gives both nodal
+planes, P and T axes, misfit, uncertainty and quality; `acceptable_planes.csv` the acceptable set.
+
+**Stress inversion** (`stress`). The reduced stress tensor is the linear least-squares solution of
+Michael (1984) for slip parallel to the resolved shear traction; the fault plane of each mechanism is
+chosen iteratively as the more unstable nodal plane (Vavrycuk 2014), with a grid search over the
+friction coefficient, and the confidence of the principal axes and of R = (s1 - s2) / (s1 - s3)
+comes from bootstrap resampling of the mechanisms. S_Hmax follows Lund and Townend (2007) and the
+regime the World Stress Map classes (Zoback 1992). `--map` adds the spatially damped simultaneous
+inversion of Hardebeck and Michael (2006) on a map grid with Gaussian weighting of the mechanisms.
+Mechanisms are selected by quality (`--quality`), distance from a point (`--centre`, `--radius`) and
+time (`--from`, `--to`).
+
+**Waveform cross-correlation** (`crosscorr`). For pairs of neighbouring events (within
+`--max-separation`, up to `--neighbours` per event) the records of every common station are
+band-passed (`--band`), cut around the picks (P on the vertical, S on the horizontals, whose
+correlation functions are summed) and correlated; the lag of the largest normalised coefficient,
+refined by a parabola, corrects the difference of the picks (Poupinet et al. 1984; Schaff et al.
+2004). Maxima below `--min-cc` or at the edge of the search range (`--max-lag`) are rejected.
+`relocate --method dd --cc dt_cc.csv` adds these times to the catalogue differential times of the
+double difference (Waldhauser and Ellsworth 2000), weighted by the squared coefficient and by the
+iteration-set weights `CrossCorrelationWeightP`, `CrossCorrelationWeightS` and
+`CrossCorrelationResidualCutoff` of `Tomography.DoubleDifference.Sets`, with the error
+`Tomography.DoubleDifference.CrossCorrelationSigma` (10 ms).
+
+**Coulomb stress change** (`coulomb`). The source is a rectangle centred on a hypocentre with the
+given strike, dip, rake, moment magnitude (M0 from Hanks and Kanamori 1979) and size, divided into
+patches with cosine-tapered slip. The stress change is computed with the finite-rectangle solution of
+Okada (1992) in a homogeneous elastic half-space (shear modulus `--shear-gpa`, 30 GPa; Poisson's ratio
+`--poisson`, 0.25) and resolved on receiver faults as dCFS = dtau + mu' dsigma_n (King et al. 1994;
+unclamping positive), on the receivers of a table (`id, lat, lon, depth, strike, dip, rake`) or on map
+grids around the source (`--map HALF_WIDTH_KM,STEP_KM --depths ... --receiver S/D/R`). Points closer to
+the slipping patches than `--mask-km` (0.1 km) are masked.
+
 ## Performance: SIMD, threads and OpenCL
 
 - The dense vector operations of LSQR (dot products, norms, axpy) use `System.Numerics.Vector<T>`, the
@@ -605,6 +662,10 @@ Project Partner Institutions, 1990), 3A (INGV, CNR-IGAG and CNR-IDPA, 2018), XO 
   reference onsets, relocation halving the location error, tomography reducing the RMS and
   correlating with the true checkerboard, a checkerboard test recovering its pattern, t\* from the
   synthetic waveforms unbiased to 3 ms, the reference Q recovered within 15 %;
+- the source studies: a mechanism recovered from noisy polarities within 15° (Kagan angle), a
+  strike-slip stress tensor recovered within 10°, the loaded tips and unloaded sides of a
+  strike-slip rupture and the traction-free surface of the Okada solution, a sub-sample delay
+  recovered by cross-correlation within 2 ms;
 - the configuration layers and the script interpreter (variables, loops, conditions, JSON values,
   tolerated and fatal failures).
 
@@ -664,7 +725,8 @@ src/TomoStar.Core/      the library
   Tomography/           observations, regularisation, travel-time tomography, adaptive mesh, lattice,
                         double difference, resolution tests, grid advisor, synthetic data
   Attenuation/          t* estimators and Q tomography
-  Location/             event locator and relocation
+  Location/             event locator, relocation, waveform cross-correlation
+  Source/               first-motion mechanisms, stress inversion, Okada/Coulomb stress change
   Signal/               filters, STA/LTA and AIC picker, spectra, instrument responses
   Model/                catalogue, 1-D models and the library of published models
   IO/                   CSV, QuakeML, StationXML, miniSEED, projects and volumes, run output
@@ -717,10 +779,21 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
 - EMERSITO Working Group (2018). Rete sismica del gruppo EMERSITO, sequenza sismica del 2016 in
   Italia Centrale [data set, network XO]. Istituto Nazionale di Geofisica e Vulcanologia (INGV).
   https://doi.org/10.13127/SD/7TXEGDO5X8
+- Frohlich, C. (1992). Triangle diagrams: ternary graphs to display similarity and diversity of
+  earthquake focal mechanisms. Physics of the Earth and Planetary Interiors, 75(1-3), 193-198.
+  https://doi.org/10.1016/0031-9201(92)90130-N
 - Geiger, L. (1912). Probability method for the determination of earthquake epicenters from the
   arrival time only. Bulletin of Saint Louis University, 8, 60-71.
+- Hanks, T. C., and Kanamori, H. (1979). A moment magnitude scale. Journal of Geophysical
+  Research, 84(B5), 2348-2350. https://doi.org/10.1029/JB084iB05p02348
 - Hansen, P. C. (1992). Analysis of discrete ill-posed problems by means of the L-curve. SIAM
   Review, 34(4), 561-580. https://doi.org/10.1137/1034115
+- Hardebeck, J. L., and Michael, A. J. (2006). Damped regional-scale stress inversions: Methodology
+  and examples for southern California and the Coalinga aftershock sequence. Journal of Geophysical
+  Research, 111, B11310. https://doi.org/10.1029/2005JB004144
+- Hardebeck, J. L., and Shearer, P. M. (2002). A new method for determining first-motion focal
+  mechanisms. Bulletin of the Seismological Society of America, 92(6), 2264-2276.
+  https://doi.org/10.1785/0120010200
 - Humphreys, E., and Clayton, R. W. (1988). Adaptation of back projection tomography to seismic
   travel time problems. Journal of Geophysical Research, 93(B2), 1073-1085.
   https://doi.org/10.1029/JB093iB02p01073
@@ -733,12 +806,20 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
   Vulcanologia (INGV). https://doi.org/10.13127/SD/KU7XM12YY9
 - ISIDe Working Group (2007). Italian Seismological Instrumental and Parametric Database (ISIDe)
   [data set]. Istituto Nazionale di Geofisica e Vulcanologia (INGV). https://doi.org/10.13127/ISIDE
+- Kagan, Y. Y. (1991). 3-D rotation of double-couple earthquake sources. Geophysical Journal
+  International, 106(3), 709-716. https://doi.org/10.1111/j.1365-246X.1991.tb06343.x
+- King, G. C. P., Stein, R. S., and Lin, J. (1994). Static stress changes and the triggering of
+  earthquakes. Bulletin of the Seismological Society of America, 84(3), 935-953.
+  https://doi.org/10.1785/BSSA0840030935
 - Kissling, E., Ellsworth, W. L., Eberhart-Phillips, D., and Kradolfer, U. (1994). Initial reference
   models in local earthquake tomography. Journal of Geophysical Research, 99(B10), 19635-19646.
   https://doi.org/10.1029/93JB03138
 - Lomax, A., Virieux, J., Volant, P., and Berge-Thierry, C. (2000). Probabilistic earthquake
   location in 3D and layered models. In Advances in Seismic Event Location, Kluwer, 101-134.
   https://doi.org/10.1007/978-94-015-9536-0_5
+- Lund, B., and Townend, J. (2007). Calculating horizontal stress orientations with full or partial
+  knowledge of the tectonic stress tensor. Geophysical Journal International, 170(3), 1328-1335.
+  https://doi.org/10.1111/j.1365-246X.2007.03468.x
 - Maeda, N. (1985). A method for reading and checking phase times in autoprocessing system of
   seismic wave data. Zisin, 38, 365-379. https://doi.org/10.4294/zisin1948.38.3_365
 - Marzorati, S., Moretti, M., Margheriti, L., Pondrelli, S., et al. (2023). Seismic Data acquired by
@@ -747,12 +828,19 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
 - MedNet Project Partner Institutions (1990). Mediterranean Very Broadband Seismographic Network
   (MedNet) [data set, network MN]. Istituto Nazionale di Geofisica e Vulcanologia (INGV).
   https://doi.org/10.13127/SD/FBBBTDTD6Q
+- Michael, A. J. (1984). Determination of stress from slip data: Faults and folds. Journal of
+  Geophysical Research, 89(B13), 11517-11526. https://doi.org/10.1029/JB089iB13p11517
+- Okada, Y. (1992). Internal deformation due to shear and tensile faults in a half-space. Bulletin
+  of the Seismological Society of America, 82(2), 1018-1040. https://doi.org/10.1785/BSSA0820021018
 - Paige, C. C., and Saunders, M. A. (1982). LSQR: An algorithm for sparse linear equations and
   sparse least squares. ACM Transactions on Mathematical Software, 8(1), 43-71.
   https://doi.org/10.1145/355984.355989
 - Perona, P., and Malik, J. (1990). Scale-space and edge detection using anisotropic diffusion. IEEE
   Transactions on Pattern Analysis and Machine Intelligence, 12(7), 629-639.
   https://doi.org/10.1109/34.56205
+- Poupinet, G., Ellsworth, W. L., and Frechet, J. (1984). Monitoring velocity variations in the
+  crust using earthquake doublets: An application to the Calaveras Fault, California. Journal of
+  Geophysical Research, 89(B7), 5719-5731. https://doi.org/10.1029/JB089iB07p05719
 - Rawlinson, N., and Sambridge, M. (2004). Wave front evolution in strongly heterogeneous layered
   media using the fast marching method. Geophysical Journal International, 156(3), 631-647.
   https://doi.org/10.1111/j.1365-246X.2004.02153.x
@@ -762,6 +850,9 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
   Journal on Numerical Analysis, 29(3), 867-884. https://doi.org/10.1137/0729053
 - Rudin, L. I., Osher, S., and Fatemi, E. (1992). Nonlinear total variation based noise removal
   algorithms. Physica D, 60, 259-268. https://doi.org/10.1016/0167-2789(92)90242-F
+- Schaff, D. P., Bokelmann, G. H. R., Ellsworth, W. L., Zanzerkia, E., Waldhauser, F., and Beroza,
+  G. C. (2004). Optimizing correlation techniques for improved earthquake location. Bulletin of the
+  Seismological Society of America, 94(2), 705-721. https://doi.org/10.1785/0120020238
 - Sethian, J. A. (1996). A fast marching level set method for monotonically advancing fronts.
   Proceedings of the National Academy of Sciences, 93(4), 1591-1595.
   https://doi.org/10.1073/pnas.93.4.1591
@@ -783,6 +874,8 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
 - Toomey, D. R., and Foulger, G. R. (1989). Tomographic inversion of local earthquake data from the
   Hengill-Grensdalur central volcano complex, Iceland. Journal of Geophysical Research, 94(B12),
   17497-17510. https://doi.org/10.1029/JB094iB12p17497
+- Vavrycuk, V. (2014). Iterative joint inversion for stress and fault orientations from focal
+  mechanisms. Geophysical Journal International, 199(1), 69-77. https://doi.org/10.1093/gji/ggu224
 - Waldhauser, F., and Ellsworth, W. L. (2000). A double-difference earthquake location algorithm:
   method and application to the northern Hayward fault, California. Bulletin of the Seismological
   Society of America, 90(6), 1353-1368. https://doi.org/10.1785/0120000006
@@ -796,3 +889,6 @@ and their licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md
   1875-1889. https://doi.org/10.1785/0120020190
 - Zhao, H. (2005). A fast sweeping method for eikonal equations. Mathematics of Computation,
   74(250), 603-627. https://doi.org/10.1090/S0025-5718-04-01678-3
+- Zoback, M. L. (1992). First- and second-order patterns of stress in the lithosphere: The World
+  Stress Map Project. Journal of Geophysical Research, 97(B8), 11703-11728.
+  https://doi.org/10.1029/92JB00132

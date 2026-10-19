@@ -27,7 +27,16 @@ public static class Program
         new("pick", "Automatic P and S picks (STA/LTA trigger, AIC onset) around the arrivals the model predicts.",
             "pick DATA --waveforms DIR --out DIR [--only-automatic] [--vp V.qvol --vs V.qvol]", PipelineCommands.Pick),
         new("relocate", "Relocate the events in a 1-D or 3-D model: absolute (grid search + Geiger) or double difference.",
-            "relocate DATA --out DIR [--method absolute|dd] [--fix-depth] [--vp V.qvol --vs V.qvol]", PipelineCommands.Relocate),
+            "relocate DATA --out DIR [--method absolute|dd] [--cc dt_cc.csv] [--fix-depth] [--vp V.qvol --vs V.qvol]", PipelineCommands.Relocate),
+        new("crosscorr", "Differential times of neighbouring events by waveform cross-correlation, for 'relocate --method dd --cc'.",
+            "crosscorr DATA --waveforms DIR --out DIR [--max-separation KM] [--max-distance KM] [--band LOW,HIGH] [--min-cc C] [--max-lag S] [--p-only]", SourceCommands.CrossCorr),
+        new("mechanism", "First-motion focal mechanisms from P polarities (grid search, acceptable set, quality A-D).",
+            "mechanism DATA --polarities F --out DIR [--min-polarities N] [--grid-step DEG] [--error-fraction F]", SourceCommands.Mechanism),
+        new("stress", "Reduced stress tensor from focal mechanisms (Michael 1984, Vavrycuk 2014), optionally damped on a map grid.",
+            "stress MECHANISMS.csv --out DIR [--quality ABC] [--centre LON,LAT --radius KM] [--from T --to T] [--map LON1,LON2,DLON,LAT1,LAT2,DLAT]", SourceCommands.Stress),
+        new("coulomb", "Coulomb stress change of a rectangular source (Okada 1992 half-space) on receivers or map grids.",
+            "coulomb --source LAT,LON,DEPTH,STRIKE,DIP,RAKE,MW,LENGTH,WIDTH --out DIR [--receivers F] [--map HALF_KM,STEP_KM --depths Z --receiver S/D/R] [--friction F]", SourceCommands.Coulomb),
+        new("kagan", "Rotation angle between two double-couple mechanisms (Kagan 1991).", "kagan STRIKE/DIP/RAKE STRIKE/DIP/RAKE", SourceCommands.Kagan),
         new("minimum1d", "Minimum 1-D model: layered inversion with hypocentres and station terms (Kissling et al. 1994).",
             "minimum1d DATA --out DIR [--iterations N] [--damping D] [--smoothing S]", InversionCommands.Minimum1D),
         new("invert", "Travel-time tomography: Vp and Vs (or Vp/Vs) jointly with hypocentres and station terms.",
@@ -136,7 +145,7 @@ public static class Program
                 return 0;
             }
             // A positional argument names the data for the commands that read data.
-            if (command.Name is not ("model1d" or "export" or "register") && parsed.Positional.Count > 0 && parsed.Get("data") == null)
+            if (command.Name is not ("model1d" or "export" or "register" or "stress" or "kagan" or "coulomb") && parsed.Positional.Count > 0 && parsed.Get("data") == null)
                 parsed = Arguments.Parse(args.Skip(1).Where(a => a != parsed.Positional[0]).Concat(["--data", parsed.Positional[0]]).ToList());
             context = new CommandContext(command.Name, parsed, ct);
             var code = command.Run(context);

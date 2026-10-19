@@ -33,7 +33,9 @@ public sealed record RelocatedEvent(EventRecord Start, Hypocentre Result, int Us
 /// tomography engine is used with its velocity unknowns switched off, so the rays are the curved
 /// fast-marching rays of the model, recomputed at each iteration, and the weighting schedule of the
 /// iteration sets (absolute times first, then differential times reweighted by residual and by
-/// separation) is the one of the double-difference tomography.
+/// separation) is the one of the double-difference tomography. Differential times measured by
+/// waveform cross-correlation (Poupinet et al. 1984; Schaff et al. 2004) can be added to the
+/// catalogue ones, weighted by their squared correlation coefficient.
 /// </summary>
 public static class Relocation
 {
@@ -103,7 +105,8 @@ public static class Relocation
     /// </summary>
     public static (List<RelocatedEvent> Events, TomographyResult Run) DoubleDifference(Catalogue catalogue, SphericalGrid grid, double[] vp, double[] vs,
         TomographySettings settings, string workFolder, int minPhasesPerEvent = 4, OutsideData outside = OutsideData.Exclude,
-        VelocityModel1D? background = null, Action<string>? log = null, IProgress<(double, string)>? progress = null, CancellationToken ct = default)
+        VelocityModel1D? background = null, Action<string>? log = null, IProgress<(double, string)>? progress = null, CancellationToken ct = default,
+        IReadOnlyList<CcMeasurement>? crossCorrelation = null)
     {
         var s = settings.Clone();
         s.InvertP = false;
@@ -117,7 +120,7 @@ public static class Relocation
         var data = ObservationSet.FromCatalogue(catalogue, grid, true, true, minPhasesPerEvent, outside);
         if (data.Events.Count < 2) throw new InvalidOperationException("Double-difference relocation needs at least two events with enough phases.");
         log?.Invoke("Double-difference relocation: " + s.DoubleDifference.Describe() + "; velocities fixed.");
-        var run = new TravelTimeTomography(grid, s, workFolder, log) { Background = background }.Run(data, vp, vs, progress, ct);
+        var run = new TravelTimeTomography(grid, s, workFolder, log) { Background = background, CrossCorrelation = crossCorrelation }.Run(data, vp, vs, progress, ct);
         var byId = catalogue.EventIndex();
         var count = new int[data.Events.Count];
         var rejected = new int[data.Events.Count];

@@ -187,6 +187,12 @@ public sealed class IterationStats
 
     /// <summary>Double difference: differential times in use (weight above the minimum).</summary>
     public int DifferentialUsed { get; set; }
+
+    /// <summary>Double difference: RMS of the cross-correlation residuals in use, s (NaN without them).</summary>
+    public double CrossCorrelationRms { get; set; } = double.NaN;
+
+    /// <summary>Double difference: cross-correlation times in use.</summary>
+    public int CrossCorrelationUsed { get; set; }
 }
 
 /// <summary>A traced ray kept for display (decimated).</summary>
@@ -251,6 +257,9 @@ public sealed class TomographyResult
 /// </summary>
 public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings settings, string workFolder, Action<string>? log = null)
 {
+    /// <summary>Waveform cross-correlation differential times added to the double-difference data (optional).</summary>
+    public IReadOnlyList<Location.CcMeasurement>? CrossCorrelation { get; init; }
+
     private ForwardDomain? _domain;
 
     /// <summary>
@@ -414,6 +423,8 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
         // Double difference: the event pairs are chosen once, from the starting hypocentres.
         var dd = s.DoubleDifference is { Enabled: true } && !s.Layered ? s.DoubleDifference : null;
         _differential = dd != null ? DoubleDifferencePairs.Build(data, dd, log) : null;
+        if (_differential != null && CrossCorrelation is { Count: > 0 })
+            _differential.AddRange(DoubleDifferencePairs.FromCrossCorrelation(data, CrossCorrelation, log));
         var iterations = dd?.TotalIterations ?? s.Iterations;
 
         try
@@ -452,7 +463,8 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
                 stats.Add(st);
                 var set = dd?.SetOf(Math.Min(it, iterations - 1));
                 var ddRows = set != null ? DifferentialResiduals(data, rows, dd!, set, st) : null;
-                var ddText = ddRows != null ? $" Differential: RMS {st.DifferentialRms:0.000} s, {st.DifferentialUsed} in use." : "";
+                var ddText = ddRows != null ? $" Differential: RMS {st.DifferentialRms:0.000} s, {st.DifferentialUsed} in use." +
+                    (st.CrossCorrelationUsed > 0 ? $" Cross-correlation: RMS {st.CrossCorrelationRms * 1000:0.0} ms, {st.CrossCorrelationUsed} in use." : "") : "";
                 log?.Invoke(final
                     ? $"Final: RMS {st.Rms:0.000} s (P {st.RmsP:0.000}, S {st.RmsS:0.000}), {st.Used} used, {st.Rejected} rejected, variance reduction {st.VarianceReductionPercent:0.0}%.{ddText}"
                     : $"Iteration {it + 1}: RMS {st.Rms:0.000} s (P {st.RmsP:0.000}, S {st.RmsS:0.000}), {st.Used} used, {st.Rejected} rejected.{ddText}");
@@ -791,31 +803,55 @@ public sealed class TravelTimeTomography(SphericalGrid grid, TomographySettings 
             var b = data.Arrivals[t.ArrivalB];
             if (a.Rejected || b.Rejected || rowOf[t.ArrivalA] is not { } ra || rowOf[t.ArrivalB] is not { } rb) return;
             if (double.IsNaN(a.Residual) || double.IsNaN(b.Residual)) return;
-            var prior = a.Phase == Phase.P ? set.DifferentialWeightP : set.DifferentialWeightS;
+            // A cross-correlation time is weighted by its squared coefficient (Waldhauser & Ellsworth 2000).
+            var prior = t.IsCrossCorrelation
+                ? (a.Phase == Phase.P ? set.CrossCorrelationWeightP : set.CrossCorrelationWeightS) * t.Coefficient * t.Coefficient
+                : a.Phase == Phase.P ? set.DifferentialWeightP : set.DifferentialWeightS;
             if (prior <= 0) return;
-            all[k] = (t, ra, rb, a.Residual - b.Residual, prior, (pos[t.EventA] - pos[t.EventB]).Length);
+            // (tA − tB)obs − (tA − tB)calc: the difference of the absolute residuals, plus the shift of
+            // the measured cross-correlation difference from the difference of the picks.
+            all[k] = (t, ra, rb, a.Residual - b.Residual + t.Shift, prior, (pos[t.EventA] - pos[t.EventB]).Length);
         });
         var candidates = all.Where(x => x.HasValue).Select(x => x!.Value).ToList();
-        var cutoff = set.ResidualCutoff;
-        if (cutoff >= 1 && candidates.Count > 0)
-            cutoff *= DoubleDifferencePairs.RobustSpread(candidates.Select(c => c.Res).ToList()).Sigma;
+        double Cutoff(double c, bool cc)
+        {
+            var group = candidates.Where(x => x.T.IsCrossCorrelation == cc).Select(x => x.Res).ToList();
+            return c >= 1 && group.Count > 0 ? c * DoubleDifferencePairs.RobustSpread(group).Sigma : c;
+        }
+        var cutoffCat = Cutoff(set.ResidualCutoff, false);
+        var cutoffCc = Cutoff(set.CrossCorrelationResidualCutoff, true);
         var list = new List<DifferentialRow>();
-        double sum2 = 0;
+        double sum2 = 0, sum2Cc = 0;
+        int nCc = 0;
         foreach (var c in candidates)
         {
             // Relative weight (a priori × separation × residual), compared with the minimum weight,
-            // then divided by the combined pick error of the two readings.
+            // then divided by the error of the differential time.
             var w = c.W;
+            var cutoff = c.T.IsCrossCorrelation ? cutoffCc : cutoffCat;
             if (set.MaxSeparationKm > 0) w *= DoubleDifferencePairs.Tricube(c.Sep, set.MaxSeparationKm);
             if (cutoff > 0) w *= DoubleDifferencePairs.Tricube(c.Res, cutoff);
             if (w < dd.MinWeight) continue;
-            var ea = data.Arrivals[c.T.ArrivalA].Sigma;
-            var eb = data.Arrivals[c.T.ArrivalB].Sigma;
-            list.Add(new DifferentialRow(c.T, c.A, c.B, c.Res, w / Math.Sqrt(ea * ea + eb * eb)));
-            sum2 += c.Res * c.Res;
+            double sigma;
+            if (c.T.IsCrossCorrelation)
+            {
+                sigma = dd.CrossCorrelationSigma;
+                sum2Cc += c.Res * c.Res;
+                nCc++;
+            }
+            else
+            {
+                var ea = data.Arrivals[c.T.ArrivalA].Sigma;
+                var eb = data.Arrivals[c.T.ArrivalB].Sigma;
+                sigma = Math.Sqrt(ea * ea + eb * eb);
+                sum2 += c.Res * c.Res;
+            }
+            list.Add(new DifferentialRow(c.T, c.A, c.B, c.Res, w / sigma));
         }
-        st.DifferentialUsed = list.Count;
-        st.DifferentialRms = list.Count > 0 ? Math.Sqrt(sum2 / list.Count) : double.NaN;
+        st.DifferentialUsed = list.Count - nCc;
+        st.DifferentialRms = list.Count - nCc > 0 ? Math.Sqrt(sum2 / (list.Count - nCc)) : double.NaN;
+        st.CrossCorrelationUsed = nCc;
+        st.CrossCorrelationRms = nCc > 0 ? Math.Sqrt(sum2Cc / nCc) : double.NaN;
         return list;
     }
 

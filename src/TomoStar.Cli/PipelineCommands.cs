@@ -136,7 +136,9 @@ public static class PipelineCommands
         {
             var s = c.Config.Tomography.Clone();
             if (c.Args.Int("iterations") is { } it) s.DoubleDifference.Sets[^1].Iterations = Math.Max(1, it);
-            var (list, run) = Relocation.DoubleDifference(cat, g, vp, vs, s, c.WorkFolder, c.Config.MinPhasesPerEvent, c.Config.OutsideData, c.Model, c.Log, c.Progress(), c.Cancel);
+            var cc = c.Args.Get("cc") is { } ccPath ? WaveformCrossCorrelation.Read(ccPath) : null;
+            if (cc != null) c.Log($"Cross-correlation times: {cc.Count} from {c.Args.Get("cc")}.");
+            var (list, run) = Relocation.DoubleDifference(cat, g, vp, vs, s, c.WorkFolder, c.Config.MinPhasesPerEvent, c.Config.OutsideData, c.Model, c.Log, c.Progress(), c.Cancel, cc);
             located = list;
             CatalogueWriter.WriteLocations(Path.Combine(c.RunFolder, "locations.csv"), located);
             RunWriter.WriteIterations(Path.Combine(c.RunFolder, "iterations.csv"), run.Iterations);

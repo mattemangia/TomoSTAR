@@ -35,6 +35,16 @@ public sealed class DoubleDifferenceIterationSet
     /// <summary>Largest event separation, km, for a differential time; its weight falls off as (1 − (s / d)³)³. 0 or less: no limit.</summary>
     public double MaxSeparationKm { get; set; }
 
+    /// <summary>
+    /// A priori weight of the waveform cross-correlation P and S times (multiplied by the squared
+    /// correlation coefficient, as in hypoDD; Waldhauser &amp; Ellsworth 2000); 0 leaves them out.
+    /// </summary>
+    public double CrossCorrelationWeightP { get; set; } = 1;
+    public double CrossCorrelationWeightS { get; set; } = 0.5;
+
+    /// <summary>Residual cutoff of the cross-correlation times, with the meaning of <see cref="ResidualCutoff"/>.</summary>
+    public double CrossCorrelationResidualCutoff { get; set; }
+
     public DoubleDifferenceIterationSet Clone() => (DoubleDifferenceIterationSet)MemberwiseClone();
 }
 
@@ -72,6 +82,9 @@ public sealed class DoubleDifferenceSettings
     /// <summary>Rows whose relative weight (a priori × separation × residual) falls below this are left out.</summary>
     public double MinWeight { get; set; } = 1e-3;
 
+    /// <summary>One-sigma error of a cross-correlation differential time, s (catalogue times use their picks' errors).</summary>
+    public double CrossCorrelationSigma { get; set; } = 0.01;
+
     /// <summary>
     /// Iteration sets, run in order; they replace <see cref="TomographySettings.Iterations"/>.
     /// The default follows the usual progression: absolute data first, differential data
@@ -79,9 +92,11 @@ public sealed class DoubleDifferenceSettings
     /// </summary>
     public List<DoubleDifferenceIterationSet> Sets { get; set; } =
     [
-        new() { Iterations = 2, AbsoluteWeight = 1, DifferentialWeightP = 0.1, DifferentialWeightS = 0.05 },
-        new() { Iterations = 2, AbsoluteWeight = 0.3, DifferentialWeightP = 1, DifferentialWeightS = 0.5, ResidualCutoff = 6, MaxSeparationKm = 10 },
-        new() { Iterations = 2, AbsoluteWeight = 0.1, DifferentialWeightP = 1, DifferentialWeightS = 0.5, ResidualCutoff = 5, MaxSeparationKm = 6 }
+        new() { Iterations = 2, AbsoluteWeight = 1, DifferentialWeightP = 0.1, DifferentialWeightS = 0.05, CrossCorrelationWeightP = 0.01, CrossCorrelationWeightS = 0.005 },
+        new() { Iterations = 2, AbsoluteWeight = 0.3, DifferentialWeightP = 1, DifferentialWeightS = 0.5, ResidualCutoff = 6, MaxSeparationKm = 10,
+                CrossCorrelationWeightP = 1, CrossCorrelationWeightS = 0.5, CrossCorrelationResidualCutoff = 6 },
+        new() { Iterations = 2, AbsoluteWeight = 0.1, DifferentialWeightP = 0.1, DifferentialWeightS = 0.05, ResidualCutoff = 5, MaxSeparationKm = 6,
+                CrossCorrelationWeightP = 1, CrossCorrelationWeightS = 0.5, CrossCorrelationResidualCutoff = 5 }
     ];
 
     public int TotalIterations => Sets.Sum(x => Math.Max(0, x.Iterations));
@@ -110,8 +125,16 @@ public sealed class DoubleDifferenceSettings
         : "double difference off";
 }
 
-/// <summary>A differential time: the same phase at the same station for two events (<see cref="ArrivalA"/> − <see cref="ArrivalB"/>).</summary>
-public readonly record struct DifferentialTime(int EventA, int EventB, int ArrivalA, int ArrivalB);
+/// <summary>
+/// A differential time: the same phase at the same station for two events (<see cref="ArrivalA"/> − <see cref="ArrivalB"/>).
+/// A catalogue time is the difference of the two picks; a cross-correlation time replaces it with the
+/// measured arrival difference, kept as <see cref="Shift"/> = (t_A − t_B)cc − (t_A − t_B)picks, and
+/// carries its correlation coefficient (NaN for catalogue times).
+/// </summary>
+public readonly record struct DifferentialTime(int EventA, int EventB, int ArrivalA, int ArrivalB, double Shift = 0, double Coefficient = double.NaN)
+{
+    public bool IsCrossCorrelation => !double.IsNaN(Coefficient);
+}
 
 /// <summary>Catalogue differential times of event pairs (nearest-neighbour selection after Waldhauser &amp; Ellsworth 2000).</summary>
 public static class DoubleDifferencePairs
@@ -225,6 +248,32 @@ public static class DoubleDifferencePairs
         log?.Invoke(string.Create(System.Globalization.CultureInfo.InvariantCulture,
             $"Double difference: {result.Count} differential times for {pairs.Count} event pairs ({strongPairs} strongly linked, mean separation {(strongPairs > 0 ? sepSum / strongPairs : 0):0.0} km); {weak.Count(w => w)} events without a strong neighbour; {outlierCount} delays longer than the travel time between the sources left out."));
         return result;
+    }
+
+    /// <summary>
+    /// Differential times measured by waveform cross-correlation (<see cref="Location.WaveformCrossCorrelation"/>),
+    /// attached to the arrivals of the two events at the station (both must have a pick of that phase, which
+    /// aligned the windows). Measurements of events or stations not in <paramref name="data"/> are skipped.
+    /// </summary>
+    public static List<DifferentialTime> FromCrossCorrelation(ObservationSet data, IEnumerable<Location.CcMeasurement> cc, Action<string>? log = null)
+    {
+        var ev = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < data.Events.Count; i++) ev.TryAdd(data.Events[i].Id, i);
+        var st = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < data.Stations.Count; i++) st.TryAdd(data.Stations[i].Id, i);
+        var arrival = new Dictionary<(int, int, Phase), int>();
+        for (var k = 0; k < data.Arrivals.Count; k++) arrival.TryAdd((data.Arrivals[k].Event, data.Arrivals[k].Station, data.Arrivals[k].Phase), k);
+        var list = new List<DifferentialTime>();
+        int skipped = 0;
+        foreach (var m in cc)
+        {
+            if (!ev.TryGetValue(m.EventA, out var a) || !ev.TryGetValue(m.EventB, out var b) || !st.TryGetValue(m.StationId, out var s)
+                || !arrival.TryGetValue((a, s, m.Phase), out var ka) || !arrival.TryGetValue((b, s, m.Phase), out var kb)) { skipped++; continue; }
+            var picks = (data.Events[a].Reference - data.Events[b].Reference).TotalSeconds + data.Arrivals[ka].Time - data.Arrivals[kb].Time;
+            list.Add(new DifferentialTime(a, b, ka, kb, m.ArrivalDifference - picks, m.Coefficient));
+        }
+        log?.Invoke($"Double difference: {list.Count} cross-correlation times attached to arrivals ({skipped} without both arrivals in the data).");
+        return list;
     }
 
     /// <summary>Median and scaled median absolute deviation (MAD / 0.6745, σ for Gaussian noise).</summary>
