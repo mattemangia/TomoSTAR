@@ -1,6 +1,6 @@
 # TomoSTAR
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23474344.svg)](https://doi.org/10.5281/zenodo.23474344)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23495151.svg)](https://doi.org/10.5281/zenodo.23495151)
 
 **Seismic Travel-time and Attenuation tomogRaphy from the command line**
 
@@ -742,7 +742,7 @@ examples/               synthetic/ (complete pipeline)
 
 If you use TomoSTAR, please cite it through its DOI,
 [10.5281/zenodo.23188347](https://doi.org/10.5281/zenodo.23188347) (all versions; each release has
-its own DOI on that page: 10.5281/zenodo.23474344 for 1.2.0, 10.5281/zenodo.23263348 for 1.1.0, 10.5281/zenodo.23188348 for 1.0.0), see `CITATION.cff`, and the papers of the methods you use
+its own DOI on that page: 10.5281/zenodo.23495151 for 1.3.0, 10.5281/zenodo.23474344 for 1.2.0, 10.5281/zenodo.23263348 for 1.1.0, 10.5281/zenodo.23188348 for 1.0.0), see `CITATION.cff`, and the papers of the methods you use
 (see [References](#references)); when a published 1-D model of the library is used, cite its paper
 too (`tomostar model1d --list` gives the DOIs).
 
