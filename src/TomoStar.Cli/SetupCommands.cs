@@ -216,12 +216,12 @@ public static class SetupCommands
 
     // ---- register -----------------------------------------------------------------------------------
 
-    /// <summary>Adds an existing run folder (its volumes/*.qvol) to a QUIVER project.</summary>
+    /// <summary>Adds an existing run folder (its volumes/*.qvol) to a project database.</summary>
     public static int Register(CommandContext c)
     {
-        if (c.Args.Positional.Count == 0) throw new UsageException("register RUN_FOLDER --project QUIVER_PROJECT");
+        if (c.Args.Positional.Count == 0) throw new UsageException("register RUN_FOLDER --project PROJECT");
         var run = Path.GetFullPath(c.Args.Positional[0]);
-        var project = c.Args.Require("project", "the QUIVER project folder");
+        var project = c.Args.Require("project", "the project database folder");
         var volumes = Directory.Exists(Path.Combine(run, "volumes"))
             ? Directory.GetFiles(Path.Combine(run, "volumes"), "*.qvol").Select(f =>
             {
@@ -231,7 +231,7 @@ public static class SetupCommands
             : [];
         var name = c.Args.Get("name") ?? Path.GetFileName(run.TrimEnd(Path.DirectorySeparatorChar));
         var n = RunWriter.RegisterInQuiverProject(project, run, name, volumes, c.Args.Get("group") ?? "");
-        Console.WriteLine($"Registered {run} in {project}: {n} volumes. Close the project in QUIVER before registering, and reopen it to see them.");
+        Console.WriteLine($"Registered {run} in {project}: {n} volumes. Close the project before registering, and reopen it to see them.");
         return 0;
     }
 }

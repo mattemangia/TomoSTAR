@@ -5,6 +5,7 @@ using System.Globalization;
 using TomoStar.Core.Attenuation;
 using TomoStar.Core.Geo;
 using TomoStar.Core.IO;
+using TomoStar.Core.Location;
 using TomoStar.Core.Model;
 using TomoStar.Core.Tomography;
 
@@ -52,7 +53,14 @@ public static class InversionCommands
         var (vp, vs, _) = c.Velocities();
         var data = Arrivals(c, s, g);
         var background = Wadati.ApplyStart(s, vp, vs, c.Model, data, c.Log);
-        var tomo = new TravelTimeTomography(g, s, c.WorkFolder, c.Log) { Background = background };
+        // --cc dt_cc.csv: double-difference tomography (Zhang & Thurber 2003) with waveform cross-correlation times
+        var cc = !layered && c.Args.Get("cc") is { } ccPath ? WaveformCrossCorrelation.Read(ccPath) : null;
+        if (cc != null)
+        {
+            s.DoubleDifference.Enabled = true;
+            c.Log($"Double-difference tomography with {cc.Count} cross-correlation times from {c.Args.Get("cc")}.");
+        }
+        var tomo = new TravelTimeTomography(g, s, c.WorkFolder, c.Log) { Background = background, CrossCorrelation = cc };
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var r = tomo.Run(data, vp, vs, c.Progress(), c.Cancel);
         var volumes = RunWriter.SaveVelocity(c.RunFolder, c.RunName, r, s, c.Catalogue, c.Model, c.LogLines,

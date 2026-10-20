@@ -40,7 +40,7 @@ public static class Program
         new("minimum1d", "Minimum 1-D model: layered inversion with hypocentres and station terms (Kissling et al. 1994).",
             "minimum1d DATA --out DIR [--iterations N] [--damping D] [--smoothing S]", InversionCommands.Minimum1D),
         new("invert", "Travel-time tomography: Vp and Vs (or Vp/Vs) jointly with hypocentres and station terms.",
-            "invert DATA --out DIR [--iterations N] [--damping D] [--smoothing S] [--adaptive] [--layered] [--vp V.qvol --vs V.qvol]", InversionCommands.Invert),
+            "invert DATA --out DIR [--iterations N] [--damping D] [--smoothing S] [--cc dt_cc.csv] [--adaptive] [--layered] [--vp V.qvol --vs V.qvol]", InversionCommands.Invert),
         new("lcurve", "Trade-off (L-curve) of damping and smoothing for the velocity or the Q tomography; recommends a pair.",
             "lcurve DATA --out DIR [--kind velocity|q] [--dampings 1,2,5,...] [--smoothings 5,20,80] [--save-models] [--update-config FILE]", InversionCommands.LCurve),
         new("resolution", "Checkerboard, spike and tabular-body tests for Vp, Vs, Vp/Vs, their leakage, and Q.",
@@ -49,10 +49,10 @@ public static class Program
             "tstar DATA --waveforms DIR --out DIR [--stationxml FILE]", PipelineCommands.TStar),
         new("qtomo", "Attenuation (Qp or Qs) tomography from t*, along the rays of the velocity model.",
             "qtomo DATA --out DIR --vp Vp.qvol --vs Vs.qvol [--damping D] [--smoothing S] [--phase P|S]", InversionCommands.QTomo),
-        new("export", "Convert .qvol volumes to CSV or VTK (the layouts QUIVER imports).",
+        new("export", "Convert .qvol volumes to CSV or VTK (plain CSV and legacy VTK).",
             "export FILE.qvol [...] [--csv] [--vtk] [--out DIR]", SetupCommands.Export),
-        new("register", "Add a run folder and its volumes to a QUIVER project.",
-            "register RUN_FOLDER --project QUIVER_PROJECT [--name NAME]", SetupCommands.Register),
+        new("register", "Add a run folder and its volumes to a project database.",
+            "register RUN_FOLDER --project PROJECT [--name NAME]", SetupCommands.Register),
         new("config", "Show the effective configuration, or write a template with every setting (--template).",
             "config [--template --out FILE] | config DATA [--config FILE] [--set Path=value]", SetupCommands.Config),
         new("info", "Version, CPU and SIMD width, OpenCL devices and their self-tests.", "info", SetupCommands.Info),
@@ -60,13 +60,13 @@ public static class Program
 
     private const string GlobalOptions = """
         Data (any command that reads data):
-          --data PATH           folder with stations.csv, events.csv, picks.csv, tstar.csv, or a QUIVER project
+          --data PATH           folder with stations.csv, events.csv, picks.csv, tstar.csv, or a project database
           --stations F --events F --picks F --tstar F   single tables (replace those of --data)
           --quakeml F --stationxml F                    add events and picks, or stations and responses
           --hypocentres F       event table whose locations replace those of the same events
-          --catalog-locations   QUIVER project: start from the catalogue locations, not the relocations
+          --catalog-locations   Project database: start from the catalogue locations, not the relocations
         Model and grid:
-          --grid F              grid.json (from 'tomostar grid') or a QUIVER project
+          --grid F              grid.json (from 'tomostar grid') or a project database
           --model M             1-D model: library name, file of 'depth vp vs' lines, auto
           --vp F --vs F         3-D velocities (.qvol) instead of the 1-D model
         Settings and output:
@@ -74,7 +74,7 @@ public static class Program
           --set Path=value      override one setting, e.g. --set Tomography.Smoothing=30 (repeatable)
           --out DIR  --name N   run folder and run name (default runs/<date_time>_<command>)
           --formats csv,vtk     volume formats besides .qvol (also --csv, --vtk)
-          --register PROJECT    copy the results into a QUIVER project ('data' = the project given as --data)
+          --register PROJECT    copy the results into a project database ('data' = the project given as --data)
           --adaptive            adaptive (octree) parameterisation; --straight: straight rays
           --no-opencl --threads N --quiet --keep-work
           --mpi                 MPI forward workers (top-level option; LSQR runs on rank zero)

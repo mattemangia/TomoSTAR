@@ -1,4 +1,4 @@
-cff-version: 1.2.0
+cff-version: 1.3.0
 message: "If you use TomoSTAR, please cite it as below."
 title: "TomoSTAR: seismic travel-time and attenuation tomography from the command line"
 abstract: >-
@@ -16,8 +16,8 @@ authors:
 doi: 10.5281/zenodo.23188347
 repository-code: "https://github.com/mattemangia/TomoSTAR"
 license: Apache-2.0
-version: 1.2.0
-date-released: 2026-10-19
+version: 1.3.0
+date-released: 2026-10-20
 keywords:
   - seismic tomography
   - local earthquake tomography

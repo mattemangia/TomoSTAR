@@ -157,7 +157,7 @@ public sealed class CommandContext
         if (Quiver != null)
         {
             c = CatalogueReader.ReadQuiverProject(data!, Args.Flag("catalog-locations"));
-            Log($"Data: QUIVER project {Quiver.Folder} ({c.Stations.Count} stations, {c.Events.Count} events, {c.TStar.Count} t*).");
+            Log($"Data: project database {Quiver.Folder} ({c.Stations.Count} stations, {c.Events.Count} events, {c.TStar.Count} t*).");
             if (Args.Get("stations") is { } s) CatalogueReader.ReadStations(s, c);
             if (Args.Get("events") is { } e) CatalogueReader.ReadEvents(e, c);
             if (Args.Get("picks") is { } p) CatalogueReader.ReadPicks(p, c);
@@ -165,7 +165,7 @@ public sealed class CommandContext
         }
         else
         {
-            if (data != null && !Directory.Exists(data)) throw new UsageException($"--data {data}: neither a folder nor a QUIVER project.");
+            if (data != null && !Directory.Exists(data)) throw new UsageException($"--data {data}: neither a folder nor a project database.");
             c = new Catalogue();
             if (Table("stations", "stations.csv") is { } s) CatalogueReader.ReadStations(s, c);
             if (Table("events", "events.csv") is { } e) CatalogueReader.ReadEvents(e, c);
@@ -219,7 +219,7 @@ public sealed class CommandContext
         }
         var relabelled = c.ResolvePickNetworks();
         if (relabelled > 0) Log($"{relabelled} picks took the network of the only station with their station code (bulletin and metadata label the station differently).");
-        if (c.Stations.Count == 0) throw new UsageException("No stations: give --data (a folder or a QUIVER project), --stations or --stationxml.");
+        if (c.Stations.Count == 0) throw new UsageException("No stations: give --data (a folder or a project database), --stations or --stationxml.");
         var (np, ns) = c.PickCounts();
         if (Quiver == null) Log($"Data: {c.Stations.Count} stations, {c.Events.Count} events, {np} P and {ns} S picks, {c.TStar.Count} t*.");
         foreach (var w in c.Warnings) Log("Warning: " + w);
@@ -229,8 +229,8 @@ public sealed class CommandContext
     // ---- Grid and models ------------------------------------------------------------------------
 
     /// <summary>
-    /// The inversion grid: --grid (a grid.json or a QUIVER project), else the configuration's Grid
-    /// (or the QUIVER project's), else the grid of --vp, else one proposed from the data.
+    /// The inversion grid: --grid (a grid.json or a project database), else the configuration's Grid
+    /// (or the project database's), else the grid of --vp, else one proposed from the data.
     /// </summary>
     public GridDefinition Grid => _grid ??= ResolveGrid();
 
@@ -278,8 +278,8 @@ public sealed class CommandContext
         VelocityModel1D m;
         if (spec.Equals("quiver", StringComparison.OrdinalIgnoreCase))
         {
-            m = Quiver?.StartingModel ?? throw new UsageException("StartingModel = quiver needs a QUIVER project with a starting model as --data.");
-            Log($"Starting model: '{m.Name}' (from the QUIVER project).");
+            m = Quiver?.StartingModel ?? throw new UsageException("StartingModel = quiver needs a project database with a starting model as --data.");
+            Log($"Starting model: '{m.Name}' (from the project database).");
         }
         else if (spec.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
@@ -319,13 +319,13 @@ public sealed class CommandContext
 
     // ---- Registration ---------------------------------------------------------------------------
 
-    /// <summary>Copies the run into a QUIVER project when --register (or --data as a project with --register=data) asks.</summary>
+    /// <summary>Copies the run into a project database when --register (or --data as a project with --register=data) asks.</summary>
     public void RegisterIfAsked(IReadOnlyList<WrittenVolume> volumes, string group = "")
     {
         var target = Args.Get("register");
         if (target == null) return;
-        if (target.Equals("data", StringComparison.OrdinalIgnoreCase)) target = Quiver?.Folder ?? throw new UsageException("--register data needs a QUIVER project as --data.");
+        if (target.Equals("data", StringComparison.OrdinalIgnoreCase)) target = Quiver?.Folder ?? throw new UsageException("--register data needs a project database as --data.");
         var n = RunWriter.RegisterInQuiverProject(target, RunFolder, RunName, volumes, group);
-        Log($"Registered in the QUIVER project {target}: run folder runs/{RunName}, {n} volumes (open the project in QUIVER to see them).");
+        Log($"Registered in the project database {target}: run folder runs/{RunName}, {n} volumes (reopen the project to see them).");
     }
 }

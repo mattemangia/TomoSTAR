@@ -374,7 +374,9 @@ any slowness by more than `MaxSlownessStep`, and halved when it increases the we
 Outliers are rejected on robust (MAD) statistics after removing each event's median residual. The
 minimum 1-D model (Kissling et al. 1994) is the same inversion with one velocity per layer. Double
 differences of neighbouring events (Waldhauser and Ellsworth 2000; Zhang and Thurber 2003) can be
-inverted with the absolute times, with the weighting schedule of tomoDD.
+inverted with the absolute times, with the weighting schedule of tomoDD. Waveform cross-correlation times
+(from `tomostar crosscorr`) enter the same inversion with `invert --cc dt_cc.csv`, weighted by the squared
+correlation coefficient (Waldhauser and Ellsworth 2000).
 
 **Regularisation choice.** The L-curve (Hansen 1992) and the data-variance/model-variance trade-off
 (Eberhart-Phillips 1986) are computed from the first linearised step for every damping and smoothing
